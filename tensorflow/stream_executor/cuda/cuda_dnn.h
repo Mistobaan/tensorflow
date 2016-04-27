@@ -32,7 +32,7 @@ namespace cuda {
 
 class CUDAExecutor;
 
-// Opaque and unique identifer for the cuDNN plugin.
+// Opaque and unique identifier for the cuDNN plugin.
 extern const PluginId kCuDnnPlugin;
 
 // cudnn-library based DNN support. For details on overridden interface
@@ -190,6 +190,22 @@ class CudnnSupport : public dnn::DnnSupport {
       const dnn::FilterDescriptor& filter_descriptor,
       const dnn::ConvolutionDescriptor& convolution_descriptor,
       dnn::BatchDescriptor* output_batch_descriptor);
+
+  bool DoRNNForward(
+      Stream* stream,
+      const dnn::RNNDescriptor& rnn_desc,
+      const DeviceMemory<float>& x_data,
+      const DeviceMemory<float>& hx_data,
+      const DeviceMemory<float>& cx_data,
+      DeviceMemory<float>& w_data,
+      DeviceMemory<float>& y_data,
+      DeviceMemory<float>& hy_data,
+      DeviceMemory<float>& cy_data,
+      DeviceMemory<float>* output_data,
+      DeviceMemory<float>& dropout_states);
+
+  bool DeriveDropoutDescriptor(
+    dnn::DropoutDescriptor* output_dropout_descriptor);
 
  private:
   // Guards the enqueueing of DNN operations via the dnn_handle_ below.

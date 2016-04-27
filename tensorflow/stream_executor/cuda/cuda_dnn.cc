@@ -59,6 +59,8 @@ using dnn::BatchDescriptor;
 using dnn::FilterDescriptor;
 using dnn::ConvolutionDescriptor;
 using dnn::PoolingDescriptor;
+using dnn::RNNDescriptor;
+using dnn::DropoutDescriptor;
 
 namespace cuda {
 
@@ -238,7 +240,27 @@ CUDNN_DNN_ROUTINE_EACH_R3(PERFTOOLS_GPUTOOLS_CUDNN_WRAP)
   __macro(cudnnCreateActivationDescriptor)                    \
   __macro(cudnnSetActivationDescriptor)                       \
   __macro(cudnnGetActivationDescriptor)                       \
-  __macro(cudnnDestroyActivationDescriptor)
+  __macro(cudnnDestroyActivationDescriptor)                   \
+  __macro(cudnnCreateRNNDescriptor)                           \
+  __macro(cudnnDestroyRNNDescriptor)                          \
+  __macro(cudnnSetRNNDescriptor)                              \
+  __macro(cudnnGetRNNWorkspaceSize)                           \
+  __macro(cudnnGetRNNTrainingReserveSize)                     \
+  __macro(cudnnGetRNNParamsSize)                              \
+  __macro(cudnnGetRNNLinLayerMatrixParams)                    \
+  __macro(cudnnGetRNNLinLayerBiasParams)                      \
+  __macro(cudnnRNNForwardInference)                           \
+  __macro(cudnnRNNForwardTraining)                            \
+  __macro(cudnnRNNBackwardData)                               \
+  __macro(cudnnRNNBackwardWeights)                            \
+  __macro(cudnnCreateDropoutDescriptor)                       \
+  __macro(cudnnDestroyDropoutDescriptor)                      \
+  __macro(cudnnDropoutGetStatesSize)                          \
+  __macro(cudnnDropoutGetReserveSpaceSize)                    \
+  __macro(cudnnSetDropoutDescriptor)                          \
+  __macro(cudnnDropoutForward)                                \
+  __macro(cudnnDropoutBackward)                               \
+
 // clang-format on
 
 CUDNN_DNN_ROUTINE_EACH_R5(PERFTOOLS_GPUTOOLS_CUDNN_WRAP)
@@ -397,6 +419,7 @@ class ScopedFilterDescriptor {
                  << ToString(status);
     }
 
+#if CUDNN_VERSION >= 5000
     // TODO(b/23032134): Even if the filter layout is not supported,
     // cudnnSetFilter4DDescriptor_v4 will return CUDNN_STATUS_SUCCESS because it
     // does not take layout as an input. Maybe force cuDNN by giving wrong
@@ -411,6 +434,7 @@ class ScopedFilterDescriptor {
                    << FilterLayoutString(filter_descriptor.layout());
         break;
     }
+#endif
 
     std::vector<int> dims(2 + filter_descriptor.ndims());
     dims[0] = filter_descriptor.output_feature_map_count();
@@ -1343,6 +1367,260 @@ bool CudnnSupport::DoActivate(Stream* stream,
   return true;
 }
 
+#if CUDNN_VERSION >= 5000
+// Turns a DropoutDescriptor structure into a cudnn Dropout
+// descriptor handle within a scope.
+class ScopedDropoutDescriptor {
+ public:
+  ScopedDropoutDescriptor(CUDAExecutor* parent,
+    dnn::DropoutDescriptor& dropout_desc,
+    DeviceMemory<float> dropout_data)
+      : parent_(parent), handle_(nullptr)
+    {
+
+    cudnnStatus_t status =
+        dynload::cudnnCreateDropoutDescriptor(parent_, &handle_);
+    if (status != CUDNN_STATUS_SUCCESS) {
+      LOG(FATAL) << "could not create cudnn dropout descriptor: "
+                 << ToString(status);
+    }
+
+    mutex_lock lock{dnn_handle_mutex_};
+    // status = dynload::cudnnDropoutGetStatesSize(parent_,
+    //                                                   ToHandle(dnn_handle_),
+    //                                                   &state_size_)
+    // if (status != CUDNN_STATUS_SUCCESS) {
+    //   LOG(FATAL) << "could not set cudnn dropout descriptor: "
+    //              << ToString(status);
+    //   return
+    // }
+
+    // auto states_handle_ = DeviceMemory<float>::MakeFromByteSize(state_size_)
+
+    status = dynload::cudnnSetDropoutDescriptor(parent_, handle_,
+                             ToHandle(dnn_handle_),
+                             dropout_desc.dropout_probability(),
+                             dropout_data.opaque(),
+                             dropout_data.size(),
+                             dropout_desc.seed());
+
+    if (status != CUDNN_STATUS_SUCCESS) {
+      LOG(FATAL) << "could not set cudnn rnn descriptor: "
+                 << ToString(status);
+    }
+  }
+
+  ~ScopedDropoutDescriptor() {
+    cudnnStatus_t status =
+        dynload::cudnnDestroyDropoutDescriptor(parent_, handle_);
+    if (status != CUDNN_STATUS_SUCCESS) {
+      LOG(ERROR) << "could not destroy cudnn dropout descriptor: "
+                 << ToString(status);
+    }
+  }
+
+  cudnnDropoutDescriptor_t handle() const { return handle_; }
+
+ private:
+  CUDAExecutor* parent_;             // Parent executor. Not owned.
+  cudnnDropoutDescriptor_t handle_;  // Owned.
+
+  SE_DISALLOW_COPY_AND_ASSIGN(ScopedDropoutDescriptor);
+};
+
+
+// Turns a RNNDescriptor structure into a cudnn rnn
+// descriptor handle within a scope.
+class ScopedRNNDescriptor {
+ public:
+  ScopedRNNDescriptor(CUDAExecutor* parent, dnn::RNNDescriptor& rnn_desc,
+    ScopedDropoutDescriptor& droput_desc)
+      : parent_(parent), handle_(nullptr) {
+    cudnnStatus_t status =
+        dynload::cudnnCreateRNNDescriptor(parent_, &handle_);
+    if (status != CUDNN_STATUS_SUCCESS) {
+      LOG(FATAL) << "could not create cudnn rnn descriptor: "
+                 << ToString(status);
+    }
+
+    cudnnRNNMode_t mode;
+    switch (rnn_desc.mode()) {
+      case dnn::RNNMode::kRELU:
+        mode = CUDNN_RNN_RELU;
+        break;
+      case dnn::RNNMode::kTanh:
+        mode = CUDNN_RNN_TANH;
+        break;
+      case dnn::RNNMode::kLSTM:
+        mode = CUDNN_RNN_LSTM;
+        break;
+      case dnn::RNNMode::kGRU:
+        mode = CUDNN_RNN_GRU;
+        break;
+      default:
+        LOG(ERROR) << "unrecognized rnn mode: "
+                   << static_cast<int>(rnn_desc.mode());
+    }
+
+    cudnnRNNInputMode_t input_mode;
+    switch (rnn_desc.input_mode()){
+      case dnn::InputMode::kLinearInput:
+        input_mode = CUDNN_LINEAR_INPUT;
+        break;
+      case dnn::InputMode::kSkipInput:
+        input_mode = CUDNN_SKIP_INPUT;
+        break;
+      default:
+        LOG(ERROR) << "unrecognized input mode: "
+                   << static_cast<int>(rnn_desc.input_mode());
+    }
+
+    cudnnDirectionMode_t direction_mode;
+    switch (rnn_desc.direction_mode()){
+      case dnn::InputMode::kUnidirectional:
+        direction_mode = CUDNN_UNIDIRECTIONAL;
+        break;
+      case dnn::InputMode::kBidirectional:
+        direction_mode = CUDNN_BIDIRECTIONAL;
+        break;
+      default:
+        LOG(ERROR) << "unrecognized input mode: "
+                   << static_cast<int>(rnn_desc.direction_mode());
+    }
+
+    status = dynload::cudnnSetRNNDescriptor(
+        parent_,
+        handle_,
+        rnn_desc.sequence_length(),
+        rnn_desc.num_layers(),
+        droput_desc.handle(),
+        input_mode,
+        direction_mode,
+        mode,
+        CUDNN_DATA_FLOAT); // is DATA_FLOAT always here ??
+
+    if (status != CUDNN_STATUS_SUCCESS) {
+      LOG(FATAL) << "could not set cudnn rnn descriptor: "
+                 << ToString(status);
+    }
+  }
+
+  ~ScopedRNNDescriptor() {
+    cudnnStatus_t status =
+        dynload::cudnnDestroyRNNDescriptor(parent_, handle_);
+    if (status != CUDNN_STATUS_SUCCESS) {
+      LOG(ERROR) << "could not destroy cudnn rnn descriptor: "
+                 << ToString(status);
+    }
+  }
+
+  cudnnRNNDescriptor_t handle() const { return handle_; }
+
+ private:
+  CUDAExecutor* parent_;         // Parent executor. Not owned.
+  cudnnRNNDescriptor_t handle_;  // Owned.
+
+  SE_DISALLOW_COPY_AND_ASSIGN(ScopedRNNDescriptor);
+};
+
+bool CudnnSupport::DoRNNForward(
+    Stream* stream, const dnn::RNNDescriptor& rnn_desc,
+    const DeviceMemory<float>& x_data,
+    const DeviceMemory<float>& hx_data,
+    const DeviceMemory<float>& cx_data,
+    DeviceMemory<float>& w_data,
+    DeviceMemory<float>& y_data,
+    DeviceMemory<float>& hy_data,
+    DeviceMemory<float>& cy_data,
+    DeviceMemory<float>* output_data,
+    DeviceMemory<float>& dropout_states)
+{
+  mutex_lock lock{dnn_handle_mutex_};
+
+  cudnnStatus_t status = dynload::cudnnSetStream(parent_, ToHandle(dnn_handle_),
+                                        AsCUDAStreamValue(stream));
+  if (status != CUDNN_STATUS_SUCCESS) {
+    LOG(ERROR) << "failed to set stream for cudnn handle: " << ToString(status);
+    return false;
+  }
+
+  // DroputDescriptor
+  ScopedDropoutDescriptor dropout_desc{ parent_,
+                    ToHandle(dnn_handle_),
+                    rnn_desc.dropout_probability(),
+                    dropout_states.opaque(),
+                    dropout_states.size(),
+                    rnn_desc.seed()
+                  };
+
+  // RNNDescriptor
+  ScopedRNNDescriptor scoped_rnn_desc{ parent_, rnn_desc, scoped_dropout_desc };
+
+  // inputs
+  ScopedTensorDescriptor x_desc{parent_, input_dimensions, CUDNN_DATA_FLOAT};
+  ScopedTensorDescriptor hx_desc{parent_, input_dimensions, CUDNN_DATA_FLOAT};
+  ScopedTensorDescriptor cx_desc{parent_, output_dimensions, CUDNN_DATA_FLOAT};
+
+  // weights
+  ScopedTensorDescriptor w_desc{parent_, output_dimensions, CUDNN_DATA_FLOAT};
+
+  // outputs
+  ScopedTensorDescriptor y_desc{parent_, output_dimensions, CUDNN_DATA_FLOAT};
+  ScopedTensorDescriptor hy_desc{parent_, output_dimensions, CUDNN_DATA_FLOAT};
+  ScopedTensorDescriptor cy_desc{parent_, output_dimensions, CUDNN_DATA_FLOAT};
+
+  status = dynload::cudnnRNNForwardTraining(_parent,
+                        ToHandle(dnn_handle_),
+                         scoped_rnn_desc.handle(),
+                         x_desc.handle(),
+                         x.opaque(),
+                         hx_desc.handle(),
+                         hx.opaque(),
+                         cx_desc.handle(),
+                         cx.opaque(),
+                         w_desc.handle(),
+                         w.opaque(),
+                         y_desc.handle(),
+                         y.opaque(),
+                         hy_desc.handle(),
+                         hy.opaque(),
+                         cy_desc.handle(),
+                         cy.opaque(),
+                         workspace,
+                         workSize,
+                         reserveSpace,
+                         reserveSize);
+
+  if (status != CUDNN_STATUS_SUCCESS) {
+    LOG(ERROR) << "failed to forwardTrain RNN: " << ToString(status);
+    return false;
+  }
+
+}
+
+// Require to allocate the state memory for cudnn dropout descriptor
+bool CudnnSupport::DeriveDropoutDescriptor(
+    dnn::DropoutDescriptor* output_dropout_descriptor) {
+
+  size_t state_size;
+
+  mutex_lock lock{dnn_handle_mutex_};
+  cudnnStatus_t status = dynload::cudnnDropoutGetStatesSize(
+      parent_, ToHandle(dnn_handle_), &state_size);
+
+  if (status != CUDNN_STATUS_SUCCESS) {
+    LOG(ERROR) << "could not get the size of the state for dropout: "
+               << ToString(status);
+    return false;
+  }
+
+  output_dropout_descriptor->set_state_size(state_size);
+
+  return true;
+}
+
+#endif // RNN cudnnv5 support
+
 bool CudnnSupport::DoPoolForward(
     Stream* stream, const dnn::PoolingDescriptor& pooling_dimensions,
     const dnn::BatchDescriptor& input_dimensions,
@@ -1481,6 +1759,7 @@ bool CudnnSupport::DoElementwiseOperate(
     const dnn::BatchDescriptor& output_dimensions,
     DeviceMemory<float>* output_data) {
   LOG(FATAL) << "not yet implemented";  // TODO(leary)
+  return false;
 }
 
 bool CudnnSupport::DoXYPad(Stream* stream,
@@ -1489,6 +1768,7 @@ bool CudnnSupport::DoXYPad(Stream* stream,
                            int64 left_pad, int64 right_pad, int64 top_pad,
                            int64 bottom_pad, DeviceMemory<float>* output_data) {
   LOG(FATAL) << "not yet implemented";  // TODO(leary)
+  return false;
 }
 
 bool CudnnSupport::DoXYSlice(Stream* stream,
@@ -1498,6 +1778,7 @@ bool CudnnSupport::DoXYSlice(Stream* stream,
                              int64 bottom_trim,
                              DeviceMemory<float>* output_data) {
   LOG(FATAL) << "not yet implemented";  // TODO(leary)
+  return false;
 }
 
 bool CudnnSupport::DoMemcpyD2HQuantized(

@@ -34,6 +34,7 @@ string QuantizedActivationModeString(QuantizedActivationMode mode) {
       LOG(FATAL) << "Unknown quantized_activation_mode "
                  << static_cast<int32>(mode);
   }
+  return "unknown quantized_activation_mode";
 }
 
 string ActivationModeString(ActivationMode mode) {
@@ -51,6 +52,7 @@ string ActivationModeString(ActivationMode mode) {
     default:
       LOG(FATAL) << "Unknown activation_mode " << static_cast<int32>(mode);
   }
+  return "unknown activation_mode";
 }
 
 string ElementwiseOperationString(ElementwiseOperation op) {
@@ -62,6 +64,7 @@ string ElementwiseOperationString(ElementwiseOperation op) {
     default:
       LOG(FATAL) << "Unknown elementwise op " << static_cast<int32>(op);
   }
+  return "unknown element wise op";
 }
 
 string DataLayoutString(DataLayout layout) {
@@ -77,6 +80,7 @@ string DataLayoutString(DataLayout layout) {
     default:
       LOG(FATAL) << "Unknown data layout " << static_cast<int32>(layout);
   }
+  return "unknown data layout";
 }
 
 string FilterLayoutString(FilterLayout layout) {
@@ -101,6 +105,7 @@ string ShortPoolingModeString(PoolingMode mode) {
     default:
       LOG(FATAL) << "Unknown filter layout " << static_cast<int32>(mode);
   }
+  return "unknown filter layout";
 }
 
 std::tuple<int, int, int> GetDimIndices(const DataLayout& layout,
@@ -468,6 +473,31 @@ string NormalizeDescriptor::ToShortString() const {
                       "_beta:", beta_, "_wrap:", wrap_around_, "_size:",
                       segment_size_);
 }
+
+// -- DropoutDescriptor
+DropoutDescriptor::DropoutDescriptor()
+    : seed_(0),
+      dropout_probability_(0.0) {}
+
+void DropoutDescriptor::CloneFrom(const DropoutDescriptor& other) {
+  seed_ = other.seed_;
+  dropout_probability_ = other.dropout_probability_;
+}
+
+string DropoutDescriptor::ToString() const {
+  return port::Printf(
+      "{seed: %llu dropout_probability: %f state_size: %zs}",
+      seed_, dropout_probability_, state_size_);
+}
+
+string DropoutDescriptor::ToShortString() const {
+  return port::StrCat("seed:", seed_, "dropout_probability:", dropout_probability_,
+    "state_size:", state_size_);
+}
+
+// -- RNNDescriptor
+
+
 
 }  // namespace dnn
 }  // namespace gputools

@@ -352,7 +352,7 @@ class FilterDescriptor {
 // Arguments:
 // - zero_padding_height: padding of the "y dimension" of the input data. Note
 //    that this is different from the height of the filter.
-// - zero_padding_width: analogouus to the height above, but in the "x
+// - zero_padding_width: analogous to the height above, but in the "x
 //    dimension".
 // - vertical_filter_stride: the convolution slides a 2-dimensional window of
 //    filter-height-by-filter-width over the input layer -- the center of that
@@ -629,6 +629,150 @@ enum class ElementwiseOperation { kAdd, kMultiply };
 
 string ElementwiseOperationString(ElementwiseOperation op);
 
+// Describes kinds of RNN network
+enum class RNNMode {
+  // A single-gate recurrent neural network with a ReLU activation function
+  // $h_t = ReLU(W_i*x_t + R_i*h_{t-1} + b_{W_i} + b_{R_i})$
+  kRELU = 0,
+
+  // A single-gate recurrent neural network with a tanh activation function
+  // $h_t = tanh(W_i*x_t + R_i*h_{t-1} + b_{W_i} + b_{R_i})
+  kTanh,
+
+  // A four-gate Long Short Term Memory with no peephole connections.
+  // $i_t = \sigma(W_i*x_t + R_i*h_{t-1} + b_{W_i} + b_{R_i})$
+  // $f_t = \sigma(W_f*x_t + R_f*h_{t-1} + b_{W_f} + b_{R_f})$
+  // $o_t = \sigma(W_o*x_t + R_o*h_{t-1} + b_{W_o} + b_{R_o})$
+  // $c'_t = tanh(W_c*x_t + R_c*h_{t-1} + b_{W_c} + b_{R_c})$
+  // $c_t = f_t \circ {c'}_{t-1} + i_t \circ {c'}_t$
+  // $h_t = o_t \circ tanh(c_t)$
+  kLSTM,
+
+  // A three-gate Gated Recurrent Units.
+  // $i_t = \sigma(W_i*x_t + R_i*h_{t-1} + b_{W_i} + b_{R_u})$
+  // $r_t = \sigma(W_f*x_t + R_f*h_{t-1} + b_{W_f} + b_{R_r})$
+  // ${h'}_t = tanh(Wh*x_t + r \circ R_h*h_{t-1}+ b_{W_h} + b_{R_h}$
+  // $h_t = (1 - i_t \circ {h'}_t + i_t \circ h_{t-1}$
+  kGRU,
+};
+
+enum class RNNInputMode {
+  // a biased matrix multiplication is performed at the input of the first
+  // recurrent layer
+  kLinear = 0,
+  // No operation is performed at the input of the first recurrent layer.
+  kSkipInput,
+};
+
+enum class DirectionMode {
+  // The network iterates recurrently from the first input to the last
+  kUnidirectional = 0,
+  // Each layer of the network iterates recurrently from the first input to the last
+  // and separately from the last input to the first.
+  // The outputs of the two are concatenated at each iteration giving the output of the
+  // layer.
+  kBidirectional
+};
+
+// Describes a dropout operation to be enqueued onto a stream via a platform's
+// DnnSupport.
+//
+// Arguments:
+//  seed: the random number generator seed
+//  dropout_probability: a probability between 0 and 1.0 of the layer.
+class DropoutDescriptor {
+ public:
+  DropoutDescriptor();
+
+  DropoutDescriptor& set_seed(unsigned long long value) {
+    seed_ = value;
+    return *this;
+  }
+
+  DropoutDescriptor& set_dropout_probability(float value) {
+    dropout_probability_ = value;
+    return *this;
+  }
+
+  DropoutDescriptor& set_state_size(size_t value) {
+    state_size_ = value;
+    return *this;
+  }
+
+  void CloneFrom(const DropoutDescriptor& other);
+
+  string ToString() const;
+  string ToShortString() const;
+
+  unsigned long long seed() const { return seed_; }
+  float dropout_probability() const { return dropout_probability_; }
+  size_t state_size() const { return state_size_; }
+
+ private:
+  unsigned long long seed_;
+  size_t state_size_;
+  float dropout_probability_;
+};
+
+// TODO: description
+class RNNDescriptor {
+ public:
+  RNNDescriptor();
+
+  RNNDescriptor& set_hidden_size(int value) {
+    hidden_size_ = value;
+    return *this;
+  }
+  RNNDescriptor& set_sequence_length(int value) {
+    sequence_length_ = value;
+    return *this;
+  }
+  RNNDescriptor& set_num_layers(int value) {
+    num_layers_ = value;
+    return *this;
+  }
+  RNNDescriptor& set_first_layer_input_mode(RNNInputMode value) {
+    first_layer_input_mode_ = value;
+    return *this;
+  }
+  RNNDescriptor& set_direction_mode(DirectionMode value) {
+    direction_mode_ = value;
+    return *this;
+  }
+  RNNDescriptor& set_rnn_mode(RNNMode value) {
+    rnn_mode_ = value;
+    return *this;
+  }
+
+  RNNDescriptor& set_dropout_probability(unsigned long long value) {
+    dropout_probability_ = value;
+    return *this;
+  }
+
+  void CloneFrom(const RNNDescriptor& other);
+
+  string ToString() const;
+  string ToShortString() const;
+
+  RNNMode mode() const { return rnn_mode_; }
+  int hidden_size() const { return hidden_size_; }
+  int sequence_length() const { return sequence_length_; }
+  int num_layers() const { return num_layers_; }
+  unsigned long long dropout_probability() const { return dropout_probability_; }
+  RNNInputMode first_layer_input_mode() const { return first_layer_input_mode_; }
+  DirectionMode direction_mode() const { return direction_mode_; }
+
+ private:
+  RNNMode rnn_mode_;
+  int hidden_size_;
+  int sequence_length_;
+  int num_layers_;
+  unsigned long long dropout_probability_;
+  RNNInputMode first_layer_input_mode_;
+  DirectionMode direction_mode_;
+};
+
+
 // Suite of operations typically used for implementing Deep/Convolutional Neural
 // Nets.
 class DnnSupport {
@@ -718,7 +862,7 @@ class DnnSupport {
   //  filter_descriptor: dimensions of the convolution filter.
   //  filter_data: coefficients for the convolution filter.
   //  output_descriptor: dimensions of the output gradients, which is the same
-  //    as the dimensions of the ouput.
+  //    as the dimensions of the output.
   //  backward_output_data: un-owned device memory region which contains the
   //    backprop of the output.
   //  convolution_descriptor: stride of the convolution filter.
@@ -747,7 +891,7 @@ class DnnSupport {
   //  input_data: un-owned device memory region which contains the
   //    convolution input.
   //  output_descriptor: dimensions of the output gradients, which is the same
-  //    as the dimensions of the ouput.
+  //    as the dimensions of the output.
   //  backward_output_data: un-owned device memory region which contains the
   //    backprop of the output.
   //  convolution_descriptor: stride of the convolution filter.

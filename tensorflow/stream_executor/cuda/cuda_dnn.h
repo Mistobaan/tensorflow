@@ -202,10 +202,17 @@ class CudnnSupport : public dnn::DnnSupport {
       DeviceMemory<float>& hy_data,
       DeviceMemory<float>& cy_data,
       DeviceMemory<float>* output_data,
-      DeviceMemory<float>& dropout_states);
+      DeviceMemory<float>& dropout_states_data,
+      ScratchAllocator* scratch_allocator
+      );
+
+  bool DeriveRNNDescriptor(
+    dnn::RNNDescriptor* output_rnn_descriptor);
 
   bool DeriveDropoutDescriptor(
     dnn::DropoutDescriptor* output_dropout_descriptor);
+
+  bool SetDropoutDescriptor();
 
  private:
   // Guards the enqueueing of DNN operations via the dnn_handle_ below.

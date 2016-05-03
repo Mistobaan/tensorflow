@@ -1141,7 +1141,7 @@ class Stream {
   // back-end implementation will be appropriately seeded by default.
   // At a minimum 16 bytes of data are required in the seed buffer.
   //
-  // To seed with good (non-reproducable) data:
+  // To seed with good (non-reproducible) data:
   //   File* f = File::Open("/dev/random", "r");
   //   int64 bytes_read = f->Read(seed_data, bytes_to_read);
   //   < error checking >
@@ -1224,7 +1224,7 @@ class Stream {
 
   // Entrain onto the stream: a memset of a 32-bit pattern at a GPU location
   // of
-  // size bytes, where bytes must be evenly 32-bit sized (i.e. evently
+  // size bytes, where bytes must be evenly 32-bit sized (i.e. evenly
   // divisible
   // by 4). The location must not be null.
   Stream &ThenMemset32(DeviceMemoryBase *location, const uint32 &pattern,

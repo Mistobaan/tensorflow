@@ -659,7 +659,7 @@ enum class RNNMode {
 enum class RNNInputMode {
   // a biased matrix multiplication is performed at the input of the first
   // recurrent layer
-  kLinear = 0,
+  kLinearInput = 0,
   // No operation is performed at the input of the first recurrent layer.
   kSkipInput,
 };
@@ -743,9 +743,16 @@ class RNNDescriptor {
     rnn_mode_ = value;
     return *this;
   }
-
-  RNNDescriptor& set_dropout_probability(unsigned long long value) {
+  RNNDescriptor& set_dropout_probability(float value) {
     dropout_probability_ = value;
+    return *this;
+  }
+  RNNDescriptor& set_seed(unsigned long long value) {
+    seed_ = value;
+    return *this;
+  }
+  RNNDescriptor& set_workspace_size(size_t value){
+    workspace_size_ = value;
     return *this;
   }
 
@@ -758,18 +765,22 @@ class RNNDescriptor {
   int hidden_size() const { return hidden_size_; }
   int sequence_length() const { return sequence_length_; }
   int num_layers() const { return num_layers_; }
-  unsigned long long dropout_probability() const { return dropout_probability_; }
+  float dropout_probability() const { return dropout_probability_; }
+  unsigned long long seed() const { return seed_; }
   RNNInputMode first_layer_input_mode() const { return first_layer_input_mode_; }
   DirectionMode direction_mode() const { return direction_mode_; }
+  size_t workspace_size() const { return workspace_size_; }
 
  private:
   RNNMode rnn_mode_;
   int hidden_size_;
   int sequence_length_;
   int num_layers_;
-  unsigned long long dropout_probability_;
+  unsigned long long seed_;
+  float dropout_probability_;
   RNNInputMode first_layer_input_mode_;
   DirectionMode direction_mode_;
+  size_t workspace_size_;
 };
 
 

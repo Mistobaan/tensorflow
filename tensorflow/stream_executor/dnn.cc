@@ -94,6 +94,7 @@ string FilterLayoutString(FilterLayout layout) {
     default:
       LOG(FATAL) << "Unknown filter layout " << static_cast<int32>(layout);
   }
+  return "unknown filter layout";
 }
 
 string ShortPoolingModeString(PoolingMode mode) {
@@ -486,7 +487,7 @@ void DropoutDescriptor::CloneFrom(const DropoutDescriptor& other) {
 
 string DropoutDescriptor::ToString() const {
   return port::Printf(
-      "{seed: %llu dropout_probability: %f state_size: %zs}",
+      "{seed: %llu dropout_probability: %f state_size: %zu }",
       seed_, dropout_probability_, state_size_);
 }
 
@@ -496,7 +497,37 @@ string DropoutDescriptor::ToShortString() const {
 }
 
 // -- RNNDescriptor
+RNNDescriptor::RNNDescriptor()
+    : hidden_size_(0),
+      sequence_length_(0),
+      num_layers_(0),
+      seed_(0),
+      dropout_probability_(0.0),
+      first_layer_input_mode_(RNNInputMode::kLinearInput),
+      direction_mode_(DirectionMode::kUnidirectional)
+    {}
 
+void RNNDescriptor::CloneFrom(const RNNDescriptor& other) {
+  hidden_size_ = other.hidden_size_;
+  sequence_length_ = other.sequence_length_;
+  num_layers_ = other.num_layers_;
+  seed_ = other.seed_;
+  dropout_probability_ = other.dropout_probability_;
+  first_layer_input_mode_ = other.first_layer_input_mode_;
+  direction_mode_ = other.direction_mode_;
+}
+
+// (fmilo) FIXME add other variables
+string RNNDescriptor::ToString() const {
+  return port::Printf(
+      "{seed: %llu dropout_probability: %f }",
+      seed_, dropout_probability_);
+}
+
+// (fmilo) FIXME add other variables
+string RNNDescriptor::ToShortString() const {
+  return port::StrCat("seed:", seed_, "dropout_probability:", dropout_probability_);
+}
 
 
 }  // namespace dnn

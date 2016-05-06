@@ -349,6 +349,7 @@ class TypedKernel : public KernelBase {
         port::InlinedVector<uint8, 4>{arg_ptr, arg_ptr + sizeof(arg)}, sizeof(arg)});
   }
 
+#ifndef GOOGLE_CUDA
   // DeviceMemoryBase family reference override.
   template <typename T>
   void PackOneParam(
@@ -367,6 +368,7 @@ class TypedKernel : public KernelBase {
     DeviceMemoryBase *ptr = static_cast<DeviceMemoryBase *>(arg);
     args->emplace_back(parent()->DeviceMemoryToKernelArg(*ptr));
   }
+#endif  // GOOGLE_CUDA
 
   // Dynamic shared device memory has a size, but no associated allocation on
   // the host; internally, the device will allocate storage.

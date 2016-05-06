@@ -63,9 +63,9 @@ class DeviceMemory;
 class Timer;
 
 namespace dnn {
-struct BatchDescriptor;
-struct FilterDescriptor;
-struct ConvolutionDescriptor;
+class BatchDescriptor;
+class FilterDescriptor;
+class ConvolutionDescriptor;
 }  // namespace dnn
 
 class StreamExecutor;

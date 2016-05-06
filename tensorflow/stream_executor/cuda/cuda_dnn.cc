@@ -260,7 +260,6 @@ CUDNN_DNN_ROUTINE_EACH_R3(PERFTOOLS_GPUTOOLS_CUDNN_WRAP)
   __macro(cudnnSetDropoutDescriptor)                          \
   __macro(cudnnDropoutForward)                                \
   __macro(cudnnDropoutBackward)                               \
-  __macro(cudnnSetTensorNdDescriptor)                         \
   __macro(cudnnGetTensorNdDescriptor)
 // clang-format on
 

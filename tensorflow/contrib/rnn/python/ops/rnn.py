@@ -9,11 +9,8 @@ from tensorflow.contrib.rnn.ops import gen_lstm_ops
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import tensor_shape
-from tensorflow.python.framework import tensor_util
 from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import gen_nn_ops
 from tensorflow.python.ops import init_ops
-from tensorflow.python.ops import logging_ops
 from tensorflow.python.ops import variable_scope as vs
 
 

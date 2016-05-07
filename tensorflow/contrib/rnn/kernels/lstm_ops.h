@@ -201,7 +201,8 @@ struct LSTMCellBlockBprop : public LSTMCellBlock {
 
   void operator()(
       OpKernelContext* ctx, perftools::gputools::Stream* stream,
-      const Device& d, bool bprop_dx, typename TTypes<float>::ConstMatrix x,
+      const Device& d, bool parallel_dw,
+      typename TTypes<float>::ConstMatrix x,
       typename TTypes<float>::ConstMatrix states_prev,
       typename TTypes<float>::ConstMatrix w, typename TTypes<float>::ConstVec b,
       typename TTypes<float>::ConstMatrix i,
@@ -257,7 +258,7 @@ struct LSTMCellBlockBprop : public LSTMCellBlock {
 
     // We can parallelize the bprop GEMMs on the CPU (on GPU doesn't make any
     // difference).
-    BlockingCounter counter(2);
+    BlockingCounter counter(parallel_dw ? 1 : 2);
     auto workers_threads = *(ctx->device()->tensorflow_cpu_worker_threads());
     auto workers = workers_threads.workers;
 
@@ -274,12 +275,14 @@ struct LSTMCellBlockBprop : public LSTMCellBlock {
     xh.slice(xh_h_offsets(), xh_h_extents()).device(d) = h_prev;
 
     // w_grad, b_grad.
-    workers->Schedule([ctx, stream, d, xh, dicfo, w_grad, &counter]() {
-      TensorBlasGemm<Device, USE_CUBLAS>()(
-          ctx, stream, d, true, false, 1.0f, xh, dicfo, 1.0f, w_grad);
-      counter.DecrementCount();
-    });
-    b_grad.device(d) += dicfo.sum(Eigen::array<int, 1>({0}));
+    if (!parallel_dw) {
+      workers->Schedule([ctx, stream, &d, &xh, &dicfo, &w_grad, &counter]() {
+        TensorBlasGemm<Device, USE_CUBLAS>()(
+            ctx, stream, d, true, false, 1.0f, xh, dicfo, 1.0f, w_grad);
+        counter.DecrementCount();
+      });
+      b_grad.device(d) += dicfo.sum(Eigen::array<int, 1>({0}));
+    }
 
     // Need to make sure our GEMMs are done.
     counter.Wait();

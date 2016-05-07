@@ -5,7 +5,6 @@ namespace tensorflow {
 REGISTER_OP("LSTMCellBlock")
     .Attr("cell_size: int")
     .Attr("forget_bias: float = 1.0")
-    .Attr("bprop_dx: bool = true")
     .Input("x: float")
     .Input("states_prev: float")
     .Input("w: float")
@@ -26,37 +25,43 @@ diagonal peephole connection.
 
 This kernel op implements the following mathematical equations:
 
-  [_, cs_prev, _, _, _, _, h_prev] = states
+```python
+[cs_prev, h_prev] = states_prev
 
-  xh = [x, h_prev]
-  [i, f, ci, o] = xh * w + b
-  f = f + forget_bias
+xh = [x, h_prev]
+[i, f, ci, o] = xh * w + b
+f = f + forget_bias
 
-  i = sigm(i)
-  f = sigm(f)
-  ci = tanh(ci)
-  o = sigm(o)
+i = sigmoid(i)
+f = sigmoid(f)
+ci = tanh(ci)
+o = sigmoid(o)
 
-  cs = ci .* i + cs_prev .* f
-  co = tanh(cs)
+cs = ci .* i + cs_prev .* f
+co = tanh(cs)
 
-  h = co .* o
-  states = [i, cs, f, o, ci, co, h]
-
+h = co .* o
+states = [cs, h]
+```
 
 cell_size: The LSTM cell size.
 forget_bias: The forget gate bias.
 x: The input to the LSTM cell.
-states_prev: The previous LSTM state of i, cs, f, o, ci, co, h.
+states_prev: The previous LSTM state of [cs, h].
 w: The weight matrix.
 b: The bias vector.
-states: The LSTM state of i, cs, f, o, ci, co, h.
+i: The input gate.
+cs: The cell state before the tanh.
+f: The forget gate.
+o: The output gate.
+ci: The cell input.
+co: The cell after the tanh.
+states: The concatenation of [cs, h].
 h: The output h vector.
 )doc");
 
 REGISTER_OP("LSTMCellBlockGrad")
     .Attr("cell_size: int")
-    .Attr("bprop_dx: bool")
     .Input("x: float")
     .Input("states_prev: float")
     .Input("w: float")
@@ -72,8 +77,8 @@ REGISTER_OP("LSTMCellBlockGrad")
     .Input("h_grad: float")
     .Output("x_grad: float")
     .Output("states_prev_grad: float")
-    .Output("w_grad: float")
-    .Output("b_grad: float")
+    .Output("dicfo: float")
+    .Output("xh: float")
     .Doc(R"doc(
 Computes the LSTM cell backward propagation for 1 timestep.
 
@@ -85,20 +90,26 @@ states_prev: The previous LSTM state (it is a concatenated vector of c[t - 1]
   and h[t - 1].
 w: The weight matrix.
 b: The bias vector.
-h: The output h[t] vector.
-states: The state vector (it is the concatenated vector of c[t] and h[t].
+i: The input gate.
+cs: The cell state before the tanh.
+f: The forget gate.
+o: The output gate.
+ci: The cell input.
+co: The cell after the tanh.
+states: The concatenation of [cs, h].
+h: The output h vector.
 states_grad: The gradient of states vector.
+h_grad: THe gradient of h vector.
 x_grad: The gradient of x.
 states_prev_grad: The gradient of states_prev.
-w_grad: The gradient of w.
-b_grad: The gradient of b.
+dicfo: The derivative wrt to [i, cs, f, o].
+xh: The concatenated vector of [x, h].
 )doc");
 
 REGISTER_OP("LSTMBlock")
     .Attr("cell_size: int")
     .Attr("forget_bias: float = 1.0")
     .Attr("sequence_len_max: int")
-    .Attr("bprop_dx: bool = true")
     .Input("sequence_len: int64")
     .Input("initial_state: float")
     .Input("x: sequence_len_max * float")
@@ -127,13 +138,12 @@ x: The list of inputs to the LSTM.
 w: The weight matrix.
 b: The bias vector.
 h: The list of outputs h of the LSTM.
-states: The list of states (it is the concatenated vector of c an h).
+states: The list of states (it is the concatenated vector of [c, h]).
 )doc");
 
 REGISTER_OP("LSTMBlockGrad")
     .Attr("cell_size: int")
     .Attr("sequence_len_max: int")
-    .Attr("bprop_dx: bool = true")
     .Input("sequence_len: int64")
     .Input("initial_state: float")
     .Input("x: sequence_len_max * float")
@@ -164,7 +174,7 @@ x: The list of inputs to the LSTM.
 w: The weight matrix.
 b: The bias vector.
 h: The list of outputs h of the LSTM.
-states: The list of states (it is the concatenated vector of c an h).
+states: The list of states (it is the concatenated vector of [c, h]).
 x_grad: The list of grads for x.
 w_grad: The grad for w.
 b_grad: The grad for b.

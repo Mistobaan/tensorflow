@@ -77,7 +77,7 @@ class LSTMTest(tf.test.TestCase):
       self.assertAllClose(a, b)
 
     for i, (a, b) in enumerate(reversed(zip(basic_individual_var_grad_values,
-                                   block_individual_var_grad_values))):
+                                        block_individual_var_grad_values))):
       tf.logging.info(
           "Comparing individual variable gradients iteraiton %d" % i)
       self.assertAllClose(a, b)
@@ -133,16 +133,16 @@ class LSTMTest(tf.test.TestCase):
       self.assertAllClose(a, b)
 
     for i, (a, b) in enumerate(reversed(zip(basic_individual_var_grad_values,
-                                   block_individual_var_grad_values))):
+                                        block_individual_var_grad_values))):
       tf.logging.info(
           "Comparing individual variable gradients iteraiton %d" % i)
       self.assertAllClose(a, b)
 
   def testLSTMBasicToCellBlockRNN(self):
-    self._testLSTMBasicToCellBlockRNN(use_gpu=False, use_sequence_length=False)
-    self._testLSTMBasicToCellBlockRNN(use_gpu=False, use_sequence_length=True)
-    self._testLSTMBasicToCellBlockRNN(use_gpu=True, use_sequence_length=False)
-    self._testLSTMBasicToCellBlockRNN(use_gpu=True, use_sequence_length=True)
+    for use_gpu in (True, False):
+      for use_sequence_length in (True, False):
+        self._testLSTMBasicToCellBlockRNN(
+            use_gpu=use_gpu, use_sequence_length=use_sequence_length)
 
   def testLSTMBasicToBlockRNN(self):
     self._testLSTMBasicToBlockRNN(use_gpu=False, use_sequence_length=False)
@@ -164,7 +164,7 @@ class BenchmarkLSTM(tf.test.Benchmark):
     print("Calculation: Static Unroll with Basic LSTM vs. Block LSTM")
     print("batch \t max_t \t units \t gpu \t dt(basic) \t dt(block) "
           "\t dt(basic)/dt(block)")
-    for batch_size in (512, 32):
+    for batch_size in (512, 256, 128, 64, 32, 16):
       for max_time in (50,):
         for num_units in (512, 256, 128):
           for use_gpu in (False, True):
@@ -318,7 +318,7 @@ def basic_vs_block_rnn_benchmark(batch_size, max_time, num_units, use_gpu):
   # Using block.
   with tf.Session(config=config, graph=tf.Graph()) as sess:
     with tf.device("/cpu:0" if not use_gpu else None):
-      cell = tf.contrib.rnn.LSTMCellBlock(num_units=num_units, bprop_dx=False)
+      cell = tf.contrib.rnn.LSTMCellBlock(num_units=num_units)
       inputs_list_t = [
           tf.Variable(x, trainable=False).value() for x in inputs_list]
       ops = rnn_test._rnn_benchmark_static(
@@ -326,7 +326,7 @@ def basic_vs_block_rnn_benchmark(batch_size, max_time, num_units, use_gpu):
     tf.initialize_all_variables().run()
     delta_block = _timer(sess, ops)
 
-  print("%d \t %d \t %d \t %s \t %f \t %f \t %f" %
+  print("%d \t %d \t %d \t %s \t %s \t %f \t %f" %
         (batch_size, max_time, num_units, use_gpu, delta_basic, delta_block,
          delta_block/delta_basic))
 

@@ -1521,32 +1521,6 @@ tf_cc_test(
     ],
 )
 
-tf_kernel_library(
-    name = "rnn_ops",
-    prefix = "rnn_ops",
-    deps = [
-        ":ops_util",
-        "//tensorflow/core:framework",
-        "//tensorflow/core:lib",
-        "//tensorflow/core:rnn_ops_op_lib",
-        "//third_party/eigen3"
-    ],
-)
-
-tf_cc_test(
-    name = "rnn_ops_test",
-    size = "small",
-    deps = [
-        ":ops_util",
-        ":rnn_ops",
-        "//tensorflow/core:core_cpu",
-        "//tensorflow/core:framework",
-        "//tensorflow/core:test",
-        "//tensorflow/core:test_main",
-        "//tensorflow/core:testlib",
-    ],
-)
-
 # Android libraries -----------------------------------------------------------
 
 filegroup(

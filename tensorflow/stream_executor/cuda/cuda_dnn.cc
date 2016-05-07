@@ -660,7 +660,7 @@ class ScopedActivationDescriptor {
         mode = CUDNN_ACTIVATION_TANH;
         break;
       default:
-        LOG(ERROR) << "unrecognized activation mode: "
+        LOG(FATAL) << "unrecognized activation mode: "
                    << static_cast<int>(activation_mode);
     }
 
@@ -1586,8 +1586,9 @@ class ScopedRNNDescriptor {
   SE_DISALLOW_COPY_AND_ASSIGN(ScopedRNNDescriptor);
 };
 
-bool CudnnSupport::DoRNNForward(
-    Stream* stream, const dnn::RNNDescriptor& rnn_desc,
+bool CudnnSupport::DoRNNForwardTraining(
+    Stream* stream,
+    const dnn::RNNDescriptor& rnn_desc,
     const DeviceMemory<float>& x_data,
     const DeviceMemory<float>& hx_data,
     const DeviceMemory<float>& cx_data,
@@ -1595,7 +1596,7 @@ bool CudnnSupport::DoRNNForward(
     DeviceMemory<float>& y_data,
     DeviceMemory<float>& hy_data,
     DeviceMemory<float>& cy_data,
-    DeviceMemory<float>* output_data,
+    DeviceMemory<float>& rnn_reserve_space_data,
     DeviceMemory<float>& dropout_states_data,
     ScratchAllocator* scratch_allocator
   )
@@ -1627,18 +1628,19 @@ bool CudnnSupport::DoRNNForward(
   // RNNDescriptor
   ScopedRNNDescriptor scoped_rnn_desc{ parent_, rnn_desc, scoped_dropout_desc };
 
+
+  auto hidden_size = rnn_desc.hidden_size();
+  int mini_batch = 1; // FIXME(fmilo) is this the same dimension as in TF ?
+
   std::vector<int> dimensions(3);
-  std::vector<int> strides(3);
-
-  int mini_batch = 1; // FIXME
-
-  dimensions[0] = rnn_desc.hidden_size();
+  dimensions[0] = hidden_size;
   dimensions[1] = mini_batch;
   dimensions[2] = 1;
 
+  std::vector<int> strides(3);
   strides[0] = 1;
-  strides[1] = rnn_desc.hidden_size();
-  strides[2] = rnn_desc.hidden_size() * mini_batch;
+  strides[1] = hidden_size;
+  strides[2] = hidden_size * mini_batch;
 
   // input ARRAY
   ScopedArrayTensorDescriptor x_desc{parent_, CUDNN_DATA_FLOAT,
@@ -1662,13 +1664,6 @@ bool CudnnSupport::DoRNNForward(
   // output hidden state
   ScopedTensorDescriptor hy_desc{parent_, CUDNN_DATA_FLOAT, dimensions, strides};
   ScopedTensorDescriptor cy_desc{parent_, CUDNN_DATA_FLOAT, dimensions, strides};
-
-  // status = dynload::cudnnGetRNNWorkspaceSize(_parent,
-  //       ToHandle(dnn_handle_),
-  //       scoped_rnn_desc.handle(),
-  //       x_desc.handle(),
-  //   )
-
 
   if (scratch_allocator == nullptr) {
     LOG(ERROR) << "could not allocate workspace memory: scratch_allocator is null";
@@ -1733,12 +1728,168 @@ bool CudnnSupport::DoRNNForward(
                          reserve_data.size());
 
   if (status != CUDNN_STATUS_SUCCESS) {
-    LOG(ERROR) << "failed to forwardTrain RNN: " << ToString(status);
+    LOG(ERROR) << "failed to launch cudnnRNNForwardTraining: " << ToString(status);
     return false;
   }
 
   return true;
 }
+
+bool CudnnSupport::DoRNNBackwardData(
+    Stream* stream,
+    const dnn::RNNDescriptor& rnn_desc,
+    const DeviceMemory<float>& y_data,
+    const DeviceMemory<float>& dy_data,
+    const DeviceMemory<float>& dhy_data,
+    const DeviceMemory<float>& dcy_data,
+    const DeviceMemory<float>& w_data,
+    const DeviceMemory<float>& hx_data,
+    const DeviceMemory<float>& cx_data,
+    DeviceMemory<float>& dx_data,
+    DeviceMemory<float>& dhx_data,
+    DeviceMemory<float>& dcx_data,
+    const DeviceMemory<float>& reserve_space_data,
+    DeviceMemory<float>& dropout_states_data,
+    ScratchAllocator* scratch_allocator
+  )
+{
+  mutex_lock lock{dnn_handle_mutex_};
+
+  cudnnStatus_t status = dynload::cudnnSetStream(parent_, ToHandle(dnn_handle_),
+                                        AsCUDAStreamValue(stream));
+  if (status != CUDNN_STATUS_SUCCESS) {
+    LOG(ERROR) << "failed to set stream for cudnn handle: " << ToString(status);
+    return false;
+  }
+
+  // DroputDescriptor
+  ScopedDropoutDescriptor scoped_dropout_desc{parent_};
+
+  status = dynload::cudnnSetDropoutDescriptor(parent_, scoped_dropout_desc.handle(),
+                             ToHandle(dnn_handle_),
+                             rnn_desc.dropout_probability(),
+                             dropout_states_data.opaque(),
+                             dropout_states_data.size(),
+                             rnn_desc.seed()); // (fmilo) FIXME: how do I get the global seed?
+
+  if (status != CUDNN_STATUS_SUCCESS) {
+    LOG(FATAL) << "could not set cudnn dropout descriptor: "
+               << ToString(status);
+  }
+
+  // RNNDescriptor
+  ScopedRNNDescriptor scoped_rnn_desc{ parent_, rnn_desc, scoped_dropout_desc };
+
+
+  auto hidden_size = rnn_desc.hidden_size();
+  int mini_batch = 1; // FIXME(fmilo) is this the same dimension as in TF ?
+
+  std::vector<int> dimensions(3);
+  dimensions[0] = hidden_size;
+  dimensions[1] = mini_batch;
+  dimensions[2] = 1;
+
+  std::vector<int> strides(3);
+  strides[0] = 1;
+  strides[1] = hidden_size;
+  strides[2] = hidden_size * mini_batch;
+
+  // input ARRAY
+  ScopedArrayTensorDescriptor y_desc{parent_, CUDNN_DATA_FLOAT,
+                                      rnn_desc.sequence_length(), dimensions, strides};
+  ScopedArrayTensorDescriptor dy_desc{parent_, CUDNN_DATA_FLOAT,
+                                      rnn_desc.sequence_length(), dimensions, strides};
+
+
+  // input hidden state
+  ScopedTensorDescriptor dhy_desc{parent_, CUDNN_DATA_FLOAT, dimensions, strides};
+  ScopedTensorDescriptor dcy_desc{parent_, CUDNN_DATA_FLOAT, dimensions, strides};
+
+  // weights
+  FilterDescriptor filter_descriptor;
+  BatchDescriptor batch_descriptor;
+
+  ScopedFilterDescriptor w_desc{parent_, filter_descriptor, batch_descriptor,
+                                CUDNN_DATA_FLOAT};
+
+  ScopedArrayTensorDescriptor dx_desc{parent_, CUDNN_DATA_FLOAT,
+                                      rnn_desc.sequence_length(), dimensions, strides};
+
+  // output hidden state
+  ScopedTensorDescriptor hx_desc{parent_, CUDNN_DATA_FLOAT, dimensions, strides};
+  ScopedTensorDescriptor dhx_desc{parent_, CUDNN_DATA_FLOAT, dimensions, strides};
+
+  ScopedTensorDescriptor cx_desc{parent_, CUDNN_DATA_FLOAT, dimensions, strides};
+  ScopedTensorDescriptor dcx_desc{parent_, CUDNN_DATA_FLOAT, dimensions, strides};
+
+  if (scratch_allocator == nullptr) {
+    LOG(ERROR) << "could not allocate workspace memory: scratch_allocator is null";
+    return false;
+  }
+
+  // Allocate Workspace
+  DeviceMemory<uint8> workspace_data;
+
+  size_t size_in_bytes;
+  status = dynload::cudnnGetRNNWorkspaceSize( parent_,
+    ToHandle(dnn_handle_),
+    scoped_rnn_desc.handle(),
+    y_desc.handle(), &size_in_bytes); // TODO do
+
+  if (status == CUDNN_STATUS_SUCCESS && size_in_bytes != 0) {
+    workspace_data =
+        scratch_allocator->AllocateBytes(stream, size_in_bytes).ValueOrDie();
+  } else {
+    LOG(ERROR) << "could not get the size of the RNN workspace: "
+               << ToString(status);
+    return false;
+  }
+
+  status = dynload::cudnnRNNBackwardData(parent_,
+                        ToHandle(dnn_handle_),
+                         scoped_rnn_desc.handle(),
+                         y_desc.handle(),
+                         y_data.opaque(),
+                         dy_desc.handle(),
+                         dy_data.opaque(),
+
+                         dhy_desc.handle(),
+                         dhy_data.opaque(),
+
+                         dcy_desc.handle(),
+                         dcy_data.opaque(),
+
+                         w_desc.handle(),
+                         w_data.opaque(),
+
+                         hx_desc.handle(),
+                         hx_data.opaque(),
+
+                         cx_desc.handle(),
+                         cx_data.opaque(),
+
+                         dx_desc.handle(),
+                         dx_data.opaque(),
+
+                         dhx_desc.handle(),
+                         dhx_data.opaque(),
+
+                         dcx_desc.handle(),
+                         dcx_data.opaque(),
+
+                         workspace_data.opaque(),
+                         workspace_data.size(),
+                         reserve_space_data.opaque(),
+                         reserve_space_data.size());
+
+  if (status != CUDNN_STATUS_SUCCESS) {
+    LOG(ERROR) << "failed to launch cudnnRNNBackwardData: " << ToString(status);
+    return false;
+  }
+
+  return true;
+}
+
 
 // Require to allocate the state memory for cudnn dropout descriptor
 bool CudnnSupport::DeriveDropoutDescriptor(
@@ -1766,6 +1917,8 @@ bool CudnnSupport::DeriveRNNDescriptor(
     dnn::RNNDescriptor* output_rnn_descriptor) {
     return true;
 }
+
+
 
 #endif // RNN cudnnv5 support
 

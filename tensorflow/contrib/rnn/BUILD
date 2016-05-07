@@ -19,6 +19,7 @@ tf_custom_op_library(
         "ops/lstm_ops.cc",
         "kernels/lstm_ops.cc",
         "kernels/lstm_ops.h",
+        "kernels/rnn_ops.cc",
     ],
     gpu_srcs = [
         "kernels/lstm_ops_gpu.cu.cc",

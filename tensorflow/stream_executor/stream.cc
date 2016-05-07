@@ -765,6 +765,72 @@ Stream &Stream::ThenMemcpyH2DQuantized(
   return *this;
 }
 
+Stream &Stream::ThenRNNForwardTraining(
+    const dnn::RNNDescriptor &rnn_descriptor, const DeviceMemory<float> &x_data,
+    const DeviceMemory<float> &hx_data, const DeviceMemory<float> &cx_data,
+    DeviceMemory<float> &w_data, DeviceMemory<float> &y_data,
+    DeviceMemory<float> &hy_data, DeviceMemory<float> &cy_data,
+    DeviceMemory<float>& reserve_space_data,
+    DeviceMemory<float> &dropout_states_data,
+    ScratchAllocator *scratch_allocator)
+{
+  VLOG_CALL(/* TODO PARAM(RNNDescriptor) */ PARAM(x_data), PARAM(hx_data), PARAM(cx_data),
+    PARAM(w_data), PARAM(y_data), PARAM(hy_data), PARAM(cy_data),
+    PARAM(dropout_states_data), PARAM(scratch_allocator));
+
+  if (ok()) {
+    if (dnn::DnnSupport *dnn = parent_->AsDnn()) {
+      CheckError(dnn->DoRNNForwardTraining(this, rnn_descriptor, x_data, hx_data, cx_data,
+        w_data, y_data, hy_data, cy_data, reserve_space_data, dropout_states_data, scratch_allocator));
+    } else {
+      SetError();
+      LOG(WARNING)
+          << "attempting to perform DNN operation using StreamExecutor "
+             "without DNN support";
+    }
+
+    return *this;
+  }
+}
+
+  Stream &Stream::ThenRNNBackwardData(
+      const dnn::RNNDescriptor& rnn_desc,
+      const DeviceMemory<float>& y_data,
+      const DeviceMemory<float>& dy_data,
+      const DeviceMemory<float>& dhy_data,
+      const DeviceMemory<float>& dcy_data,
+      const DeviceMemory<float>& w_data,
+      const DeviceMemory<float>& hx_data,
+      const DeviceMemory<float>& cx_data,
+      DeviceMemory<float>& dx_data,
+      DeviceMemory<float>& dhx_data,
+      DeviceMemory<float>& dcx_data,
+      const DeviceMemory<float>& reserve_space_data,
+      DeviceMemory<float>& dropout_states_data,
+      ScratchAllocator* scratch_allocator)
+{
+  VLOG_CALL(/* TODO PARAM(RNNDescriptor) */ PARAM(y_data), PARAM(dy_data), PARAM(dhy_data),
+    PARAM(dcy_data), PARAM(w_data), PARAM(hx_data), PARAM(cx_data),
+    PARAM(dx_data), PARAM(dhx_data), PARAM(dcx_data),
+    PARAM(reserve_space_data), PARAM(dropout_states_data), PARAM(scratch_allocator));
+
+  if (ok()) {
+    if (dnn::DnnSupport *dnn = parent_->AsDnn()) {
+      CheckError(dnn->DoRNNBackwardData(this, rnn_desc, y_data, dy_data, dhy_data,
+        dcy_data, w_data, hx_data, cx_data, dx_data, dhx_data, dcx_data,
+        reserve_space_data,
+        dropout_states_data, scratch_allocator));
+    } else {
+      SetError();
+      LOG(WARNING)
+          << "attempting to perform DNN operation using StreamExecutor "
+             "without DNN support";
+    }
+
+    return *this;
+  }
+}
+
 Stream *Stream::GetOrCreateSubStream() {
   mutex_lock lock{mu_};
   for (auto &stream : sub_streams_) {

@@ -31,98 +31,122 @@ limitations under the License.
 #include "tensorflow/core/util/use_cudnn.h"
 
 #if GOOGLE_CUDA
+#include "tensorflow/core/kernels/conv_ops_gpu.h"
 #include "tensorflow/core/platform/stream_executor.h"
 #endif  // GOOGLE_CUDA
 
 namespace tensorflow {
 
+int64 GetCudnnWorkspaceLimit(const string& envvar_in_mb,
+                             int64 default_value_in_bytes);
+
 typedef Eigen::ThreadPoolDevice CPUDevice;
 typedef Eigen::GpuDevice GPUDevice;
 
-class LSTMBlockOp : public OpKernel {
-  public:
-   explicit LSTMCellBlockOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
-     OP_REQUIRES_OK(ctx, ctx->GetAttr("cell_size", &cell_size_));
-     OP_REQUIRES_OK(ctx, ctx->GetAttr("forget_bias", &forget_bias_));
+template <typename Device, typename T>
+struct LaunchRNNOp;
 
-     perftools::gputools::Stream* stream =
-         ctx->op_device_context() ? ctx->op_device_context()->stream() : nullptr;
-      stream->
+template <typename T>
+struct LaunchRNNOp<GPUDevice, T> {
+  static void launch(OpKernelContext* ctx, bool use_cudnn,
+    const Tensor& x, const Tensor& hx, const Tensor& cx,
+    Tensor* y, Tensor* hy, Tensor *cy, Tensor *dropout_state) {
+
+    auto* stream = ctx->op_device_context()->stream();
+    OP_REQUIRES(ctx, stream, errors::Internal("No GPU stream available."));
+
+    if (!use_cudnn) {
+      // TODO(fmilo) use cublas impl
+      return;
+    }
+
+     perftools::gputools::dnn::RNNDescriptor rnn_descriptor;
+
+     // input
+     // Tensor* x_tensor = nullptr;
+     // OP_REQUIRES_OK(ctx, ctx->allocate_output("x",
+     //       TensorShape({batch_size, cell_size_}), &x_tensor));
+
+     // Tensor* hx_tensor = nullptr;
+     // OP_REQUIRES_OK(ctx, ctx->allocate_output("hx",
+     //       TensorShape({batch_size, cell_size_}), &hx_tensor));
+
+     // Tensor* cx_tensor = nullptr;
+     // OP_REQUIRES_OK(ctx, ctx->allocate_output("cx",
+     //       TensorShape({batch_size, cell_size_}), &cx_tensor));
+
+     // Tensor* w_tensor = nullptr;
+     // OP_REQUIRES_OK(ctx, ctx->allocate_output("w",
+     //       TensorShape({batch_size, cell_size_}), &w_tensor));
+
+     // // output
+     // Tensor* y_tensor = nullptr;
+     // OP_REQUIRES_OK(ctx, ctx->allocate_output("y",
+     //       TensorShape({batch_size, cell_size_}), &cx_tensor));
+
+     // Tensor* hy_tensor = nullptr;
+     // OP_REQUIRES_OK(ctx, ctx->allocate_output("hy",
+     //       TensorShape({batch_size, cell_size_}), &hy_tensor));
+
+     // Tensor* cy_tensor = nullptr;
+     // OP_REQUIRES_OK(ctx, ctx->allocate_output("cy",
+     //       TensorShape({batch_size, cell_size_}), &cy_tensor));
+
+     // Tensor* output_tensor = nullptr;
+     // OP_REQUIRES_OK(ctx, ctx->allocate_output("output_tensor",
+     //       TensorShape({batch_size, cell_size_}), &output_tensor));
+
+     // Dropout
+     // Tensor* dropout_state_tensor = nullptr;
+     // OP_REQUIRES_OK(ctx, ctx->allocate_output("dropout_state",
+     //       TensorShape({batch_size, cell_size_}), &dropout_state_tensor));
+
+      auto x_ptr = AsDeviceMemory(x.template flat<T>().data(),
+                                  x.template flat<T>().size());
+      auto hx_ptr = AsDeviceMemory(hx.template flat<T>().data(),
+                                  hx.template flat<T>().size());
+      auto cx_ptr = AsDeviceMemory(hx.template flat<T>().data(),
+                                  hx.template flat<T>().size());
+
+      auto y_ptr = AsDeviceMemory(y->template flat<T>().data(),
+                                  y->template flat<T>().size());
+      auto hy_ptr = AsDeviceMemory(hy->template flat<T>().data(),
+                                   hy->template flat<T>().size());
+      auto cy_ptr = AsDeviceMemory(cy->template flat<T>().data(),
+                                   cy->template flat<T>().size());
+
+      auto dropout_state_ptr = AsDeviceMemory(dropout_state->template flat<T>().data(),
+                                              dropout_state->template flat<T>().size());
+
+    static int64 ConvolveScratchSize = GetCudnnWorkspaceLimit(
+        "TF_CUDNN_WORKSPACE_LIMIT_IN_MB", 1LL << 32  // 4GB by default
+        );
+
+    CudnnScratchAllocator scratch_allocator(ConvolveScratchSize, ctx);
+
+     bool rnn_launch_status = stream->ThenRNNFoward(
+        rnn_descriptor,
+        x_ptr,
+        hx_ptr,
+        w_ptr,
+        y_ptr,
+        hy_ptr,
+        cy_ptr,
+        dropout_state_ptr,
+        scratch_allocator
+      ).ok();
+
+     if (!rnn_launch_status) {
+        ctx->SetStatus(errors::Internal("cudnnRNNForward launch failure :"
+            " x shape(", x.shape().DebugString(),
+            ") hx shape(", hx.shape().DebugString(),
+            ") cx shape(", cx.shape().DebugString(),
+            ") y shape(", y->shape().DebugString(),
+            ") hy shape(", hy->shape().DebugString(),
+            ") cy shape(", cy->shape().DebugString(), ")"
+            ));
+        return;
+      };
+
    }
-
-   void Compute(OpKernelContext* ctx) override {
-     const Tensor* x_tensor = nullptr;
-     OP_REQUIRES_OK(ctx, ctx->input("x", &x_tensor));
-
-     const Tensor* states_prev_tensor = nullptr;
-     OP_REQUIRES_OK(ctx, ctx->input("states_prev", &states_prev_tensor));
-
-     const Tensor* w_tensor = nullptr;
-     OP_REQUIRES_OK(ctx, ctx->input("w", &w_tensor));
-
-     const Tensor* b_tensor = nullptr;
-     OP_REQUIRES_OK(ctx, ctx->input("b", &b_tensor));
-
-     const int64 batch_size = x_tensor->dim_size(0);
-     const int64 input_size = x_tensor->dim_size(1);
-     const int64 state_size = cell_size_ * 7;
-
-     perftools::gputools::Stream* stream =
-         ctx->op_device_context() ? ctx->op_device_context()->stream() : nullptr;
-
-     // Sanity checks for our input shapes.
-     OP_REQUIRES(ctx, states_prev_tensor->dim_size(0) == batch_size,
-                 errors::InvalidArgument("states_prev.dims(0) != batch_size: ",
-                                         states_prev_tensor->dim_size(0),
-                                         " vs. ", batch_size));
-     OP_REQUIRES(ctx, states_prev_tensor->dim_size(1) == state_size,
-                 errors::InvalidArgument("states_prev.dims(1) != state_size: ",
-                                         states_prev_tensor->dim_size(1),
-                                         " vs. ", state_size));
-
-     OP_REQUIRES(ctx, w_tensor->dim_size(0) == input_size + cell_size_,
-                 errors::InvalidArgument("w.dim_size(0) != input_size + cell_size: ",
-                                         w_tensor->dim_size(0),
-                                         " vs. ", input_size + cell_size_));
-     OP_REQUIRES(ctx, w_tensor->dim_size(1) == cell_size_ * 4,
-                 errors::InvalidArgument("w.dim_size(1) != cell_size * 4: ",
-                                         w_tensor->dim_size(1),
-                                         " vs. ", cell_size_ * 4));
-
-     OP_REQUIRES(ctx, b_tensor->dim_size(0) == cell_size_ * 4,
-                 errors::InvalidArgument("b.dim_size(0) != cell_size * 4: ",
-                                         b_tensor->dim_size(0),
-                                         " vs. ", cell_size_ * 4));
-
-     Tensor* h_tensor = nullptr;
-     OP_REQUIRES_OK(ctx, ctx->allocate_output("h",
-           TensorShape({batch_size, cell_size_}), &h_tensor));
-
-     // Allocate our output matrices.
-     Tensor* states_tensor = nullptr;
-     OP_REQUIRES_OK(ctx, ctx->allocate_output("states",
-         TensorShape({batch_size, state_size}), &states_tensor));
-
-     Tensor xh_tensor;
-     OP_REQUIRES_OK(ctx, ctx->allocate_temp(DT_FLOAT,
-         TensorShape({batch_size, input_size + cell_size_}), &xh_tensor));
-
-     functor::LSTMCellBlockFprop<Device, USE_CUBLAS>()(
-         stream, ctx->eigen_device<Device>(),
-         batch_size, input_size, cell_size_, forget_bias_,
-         x_tensor->matrix<float>(),
-         xh_tensor.matrix<float>(), states_prev_tensor->matrix<float>(),
-         w_tensor->matrix<float>(), b_tensor->vec<float>(),
-         h_tensor->matrix<float>(), states_tensor->matrix<float>());
-   }
-
-  private:
-   int64 cell_size_;
-   float forget_bias_;
  };
-
- REGISTER_KERNEL_BUILDER(Name("LSTMCellBlock")    \
-                             .Device(DEVICE_CPU),
-                         LSTMCellBlockOp<CPUDevice, false>);
-}
-

@@ -191,7 +191,7 @@ class CudnnSupport : public dnn::DnnSupport {
       const dnn::ConvolutionDescriptor& convolution_descriptor,
       dnn::BatchDescriptor* output_batch_descriptor);
 
-  bool DoRNNForward(
+  bool DoRNNForwardTraining(
       Stream* stream,
       const dnn::RNNDescriptor& rnn_desc,
       const DeviceMemory<float>& x_data,
@@ -201,10 +201,28 @@ class CudnnSupport : public dnn::DnnSupport {
       DeviceMemory<float>& y_data,
       DeviceMemory<float>& hy_data,
       DeviceMemory<float>& cy_data,
-      DeviceMemory<float>* output_data,
+      DeviceMemory<float>& reserve_space_data,
       DeviceMemory<float>& dropout_states_data,
       ScratchAllocator* scratch_allocator
-      );
+      ) override;
+
+  bool DoRNNBackwardData(
+      Stream* stream,
+      const dnn::RNNDescriptor& rnn_desc,
+      const DeviceMemory<float>& y_data,
+      const DeviceMemory<float>& dy_data,
+      const DeviceMemory<float>& dhy_data,
+      const DeviceMemory<float>& dcy_data,
+      const DeviceMemory<float>& w_data,
+      const DeviceMemory<float>& hx_data,
+      const DeviceMemory<float>& cx_data,
+      DeviceMemory<float>& dx_data,
+      DeviceMemory<float>& dhx_data,
+      DeviceMemory<float>& dcx_data,
+      const DeviceMemory<float>& rnn_reserve_space_data,
+      DeviceMemory<float>& dropout_states_data,
+      ScratchAllocator* scratch_allocator
+    ) override;
 
   bool DeriveRNNDescriptor(
     dnn::RNNDescriptor* output_rnn_descriptor);

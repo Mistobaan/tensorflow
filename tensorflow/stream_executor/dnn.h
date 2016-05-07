@@ -1207,6 +1207,37 @@ class DnnSupport {
       QuantizedActivationMode mode,
       DeviceMemory<float>* gpu_unquantized_dst) = 0;
 
+  virtual bool DoRNNForwardTraining(
+      Stream* stream,
+      const dnn::RNNDescriptor& rnn_desc,
+      const DeviceMemory<float>& x_data,
+      const DeviceMemory<float>& hx_data,
+      const DeviceMemory<float>& cx_data,
+      DeviceMemory<float>& w_data,
+      DeviceMemory<float>& y_data,
+      DeviceMemory<float>& hy_data,
+      DeviceMemory<float>& cy_data,
+      DeviceMemory<float>& reserve_space_data,
+      DeviceMemory<float>& dropout_states_data,
+      ScratchAllocator* scratch_allocator) = 0;
+
+  virtual bool DoRNNBackwardData(
+      Stream* stream,
+      const dnn::RNNDescriptor& rnn_desc,
+      const DeviceMemory<float>& y_data,
+      const DeviceMemory<float>& dy_data,
+      const DeviceMemory<float>& dhy_data,
+      const DeviceMemory<float>& dcy_data,
+      const DeviceMemory<float>& w_data,
+      const DeviceMemory<float>& hx_data,
+      const DeviceMemory<float>& cx_data,
+      DeviceMemory<float>& dx_data,
+      DeviceMemory<float>& dhx_data,
+      DeviceMemory<float>& dcx_data,
+      const DeviceMemory<float>& reserve_space_data,
+      DeviceMemory<float>& dropout_states_data,
+      ScratchAllocator* scratch_allocator) = 0;
+
  private:
   SE_DISALLOW_COPY_AND_ASSIGN(DnnSupport);
 };

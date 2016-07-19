@@ -88,11 +88,27 @@ load(
 # -----------------------------------------------------------------------------
 # Public targets
 
+filegroup(
+    name = "protos_all_src",
+    srcs = glob(
+        ["**/*.proto"],
+        exclude = [
+            "lib/core/error_codes.proto",
+            "protobuf/worker.proto",
+            "protobuf/worker_service.proto",
+            "protobuf/master.proto",
+            "protobuf/master_service.proto",
+        ],
+    ),
+    visibility = ["//visibility:public"],
+)
+
 tf_proto_library(
     name = "protos_all",
     srcs = glob(
         ["**/*.proto"],
         exclude = [
+            "lib/core/error_codes.proto",
             "protobuf/worker.proto",
             "protobuf/worker_service.proto",
             "protobuf/master.proto",

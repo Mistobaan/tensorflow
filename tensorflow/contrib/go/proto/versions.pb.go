@@ -44,6 +44,8 @@ func init() {
 	proto.RegisterType((*VersionDef)(nil), "tensorflow.VersionDef")
 }
 
+func init() { proto.RegisterFile("tensorflow/core/framework/versions.proto", fileDescriptor15) }
+
 var fileDescriptor15 = []byte{
 	// 175 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x44, 0x8e, 0xbd, 0x0e, 0x82, 0x50,

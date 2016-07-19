@@ -65,6 +65,8 @@ func init() {
 	proto.RegisterType((*KernelDef_AttrConstraint)(nil), "tensorflow.KernelDef.AttrConstraint")
 }
 
+func init() { proto.RegisterFile("tensorflow/core/framework/kernel_def.proto", fileDescriptor5) }
+
 var fileDescriptor5 = []byte{
 	// 290 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x7c, 0x50, 0x4d, 0x4b, 0xc3, 0x40,

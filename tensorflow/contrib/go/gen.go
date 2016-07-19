@@ -1,5 +1,4 @@
 // Operation definitions file.
-//go:generate sh proto/generate.sh
 
 // Documentation.
 //go:generate sh -c "godoc  -ex=true -templates=godoc_tmpl/ cmd/github.com/tensorflow/tensorflow/tensorflow/contrib/go Tensor > g3doc/tensor.md"

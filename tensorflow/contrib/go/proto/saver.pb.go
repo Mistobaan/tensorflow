@@ -42,6 +42,8 @@ func init() {
 	proto.RegisterType((*SaverDef)(nil), "tensorflow.SaverDef")
 }
 
+func init() { proto.RegisterFile("tensorflow/core/protobuf/saver.proto", fileDescriptor17) }
+
 var fileDescriptor17 = []byte{
 	// 267 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x54, 0xd0, 0xcd, 0x4a, 0xc3, 0x40,

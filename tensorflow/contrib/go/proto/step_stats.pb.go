@@ -128,6 +128,8 @@ func init() {
 	proto.RegisterType((*StepStats)(nil), "tensorflow.StepStats")
 }
 
+func init() { proto.RegisterFile("tensorflow/core/framework/step_stats.proto", fileDescriptor8) }
+
 var fileDescriptor8 = []byte{
 	// 554 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x74, 0x53, 0x4d, 0x6b, 0xdb, 0x40,

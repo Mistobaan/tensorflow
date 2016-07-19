@@ -134,6 +134,8 @@ func init() {
 	proto.RegisterType((*MemoryLogRawDeallocation)(nil), "tensorflow.MemoryLogRawDeallocation")
 }
 
+func init() { proto.RegisterFile("tensorflow/core/framework/log_memory.proto", fileDescriptor6) }
+
 var fileDescriptor6 = []byte{
 	// 415 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xa4, 0x93, 0xdf, 0x6a, 0xdb, 0x30,

@@ -134,6 +134,8 @@ func init() {
 	proto.RegisterType((*TensorSliceProto_Extent)(nil), "tensorflow.TensorSliceProto.Extent")
 }
 
+func init() { proto.RegisterFile("tensorflow/core/framework/tensor_slice.proto", fileDescriptor13) }
+
 var fileDescriptor13 = []byte{
 	// 186 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xd2, 0x29, 0x49, 0xcd, 0x2b,

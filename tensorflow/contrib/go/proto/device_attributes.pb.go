@@ -69,6 +69,8 @@ func init() {
 	proto.RegisterEnum("tensorflow.BusAdjacency", BusAdjacency_name, BusAdjacency_value)
 }
 
+func init() { proto.RegisterFile("tensorflow/core/framework/device_attributes.proto", fileDescriptor2) }
+
 var fileDescriptor2 = []byte{
 	// 317 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x5c, 0x51, 0x4b, 0x4f, 0xf3, 0x30,

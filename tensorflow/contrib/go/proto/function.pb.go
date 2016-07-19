@@ -155,6 +155,8 @@ func init() {
 	proto.RegisterType((*GradientDef)(nil), "tensorflow.GradientDef")
 }
 
+func init() { proto.RegisterFile("tensorflow/core/framework/function.proto", fileDescriptor3) }
+
 var fileDescriptor3 = []byte{
 	// 389 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x7c, 0x92, 0xcf, 0x4a, 0xeb, 0x40,

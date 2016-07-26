@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	pb "github.com/tensorflow/tensorflow/tensorflow/contrib/go/proto"
+	pb "github.com/tensorflow/tensorflow/tensorflow/core/protos_all_go"
 )
 
 import "C"

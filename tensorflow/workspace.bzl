@@ -85,7 +85,7 @@ def tf_workspace(path_prefix = "", tf_repo_name = ""):
   native.git_repository(
     name = "protobuf",
     remote = "https://github.com/google/protobuf",
-    commit = "ed87c1fe2c6e1633cadb62cf54b2723b2b25c280",
+    commit = "06220303323f3cce425706540defcd7a29d42ec2",
   )
 
   native.new_http_archive(
@@ -199,3 +199,58 @@ def tf_workspace(path_prefix = "", tf_repo_name = ""):
     sha256 = "36658cb768a54c1d4dec43c3116c27ed893e88b02ecfcb44f2166f9c0b7f2a0d",
     build_file = path_prefix + "zlib.BUILD",
   )
+
+
+  native.git_repository(
+      name = "io_bazel_rules_go",
+      remote = "https://github.com/bazelbuild/rules_go.git",
+      tag = "0.0.3",
+  )
+
+  # native.local_repository(
+  #   name = "io_bazel_rules_go",
+  #   path = "/Users/fmilo/workspace/funplayground/rules_go"
+  # )
+
+  native.new_git_repository(
+    name = "go_protobuf",
+    remote = "https://github.com/golang/protobuf",
+    commit = "874264fbbb43f4d91e999fecb4b40143ed611400",
+    build_file = "util/go/protobuf.BUILD",
+  )
+
+  # Note: this is loaded by go_repositories in the go_rules skylark repositories
+  # but here is set manually for lack of a better method.
+  GO_TOOLCHAIN_BUILD_FILE = """
+package(
+  default_visibility = [ "//visibility:public" ])
+
+filegroup(
+  name = "toolchain",
+  srcs = glob(["go/bin/*", "go/pkg/**", ]),
+)
+
+filegroup(
+  name = "go_tool",
+  srcs = [ "go/bin/go" ],
+)
+
+filegroup(
+  name = "go_include",
+  srcs = [ "go/pkg/include" ],
+)
+"""
+  native.new_http_archive(
+    name=  "golang_linux_amd64",
+    url = "https://storage.googleapis.com/golang/go1.6.2.linux-amd64.tar.gz",
+    build_file_content = GO_TOOLCHAIN_BUILD_FILE,
+    sha256 = "e40c36ae71756198478624ed1bb4ce17597b3c19d243f3f0899bb5740d56212a"
+  )
+
+  native.new_http_archive(
+    name=  "golang_darwin_amd64",
+    url = "https://storage.googleapis.com/golang/go1.6.2.darwin-amd64.tar.gz",
+    build_file_content = GO_TOOLCHAIN_BUILD_FILE,
+    sha256 = "6ebbafcac53bbbf8c4105fa84b63cca3d6ce04370f5a04ac2ac065782397fc26"
+  )
+

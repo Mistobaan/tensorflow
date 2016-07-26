@@ -32,13 +32,15 @@ def _proto_gen_impl(ctx):
 
   inputs = srcs + deps
 
+  # FIXME: this is a hack to make it work for now, find a better way to reference this directory 
+  import_flags += ["-I" + "external/protobuf/src"] 
+
   args = []
   if ctx.attr.gen_cc:
     args += ["--cpp_out=" + ctx.var["GENDIR"] + "/" + gen_dir]
   if ctx.attr.gen_go:
     inputs += [ctx.executable.protoc_gen_go]
     args += ["--go_out=" + ctx.var["GENDIR"] + "/" + gen_dir]
-    #import_flags += ["-Igoogle/protobuf"]
     args += ["--plugin=protoc-gen-go=" + ctx.executable.protoc_gen_go.path]
   if ctx.attr.gen_py:
     args += ["--python_out=" + ctx.var["GENDIR"] + "/" + gen_dir]
@@ -127,7 +129,7 @@ def go_proto_library(name,
   go_library(
     name=name,
     srcs=outs,
-    deps=go_libs + deps,
+    deps=go_libs + deps ,
     **kargs)
 
 # Bazel rules for building swig files.

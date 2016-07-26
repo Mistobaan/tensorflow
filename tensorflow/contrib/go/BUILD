@@ -2,17 +2,22 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library", "go_test")
-load("//tensorflow/tools/go:build_config.bzl", "go_wrap_cc", "go_proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "cgo_library", "go_library", "go_test")
+
+load("//tensorflow/core:platform/default/go_proto_library.bzl", "go_wrap_cc")
 
 go_prefix("github.com/tensorflow/tensorflow/contrib/go")
 
-go_proto_library(
-    name = "tensorflow_protos_all_go",
-    srcs = ["//tensoflow/core:protos_all"],
-    go_libs = ["@go_protobuf//:proto"],
-    protoc_gen_go = "@go_protobuf//:protoc-gen-go-bin",
-    deps = [],
+go_library(
+    name = "tensorflow_go",
+    srcs = ["graph.go", "session.go" ],
+    deps = [":tensorflow_cgo", "@go_protobuf//:proto", "//tensorflow/core:protos_all_go"],
+)
+
+cgo_library(
+    name = "tensorflow_cgo",
+    srcs = ["lib.go", "tensor.go"],
+    deps = ["@go_protobuf//:proto", "//tensorflow/core:protos_all_go", ":go_wrap_tensorflow"],
 )
 
 go_wrap_cc(

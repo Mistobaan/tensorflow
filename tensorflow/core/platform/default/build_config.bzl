@@ -1,17 +1,9 @@
 # Platform-specific build configurations.
 
-<<<<<<< 268d144beb4270666c6049676f226e707f5f0d5f
-load("@protobuf//:protobuf.bzl", "cc_proto_library")
-load("@protobuf//:protobuf.bzl", "py_proto_library")
-||||||| merged common ancestors
-load("//google/protobuf:protobuf.bzl", "cc_proto_library")
-load("//google/protobuf:protobuf.bzl", "py_proto_library")
-=======
 load("@protobuf//:protobuf.bzl", "cc_proto_library")
 load("@protobuf//:protobuf.bzl", "py_proto_library")
 
 load("//tensorflow/core:platform/default/go_proto_library.bzl", "go_proto_library")
->>>>>>> WIP on build gen rules
 
 # configure may change the following line to True
 WITH_GCP_SUPPORT = False
@@ -80,8 +72,8 @@ def tf_proto_library_go(name, srcs=[], deps=[], visibility=[], testonly=0):
   go_proto_library(name = name + "_go",
                    srcs = srcs,
                    deps = deps,
-                   go_libs = ["@go_protobuf//:proto"],  
-                   protoc = "//google/protobuf:protoc",
+                   go_libs = ["@go_protobuf//:proto", "@go_protobuf//:ptypes/any"],
+                   protoc = "@protobuf//:protoc",
                    protoc_gen_go = "@go_protobuf//:protoc-gen-go-bin",
                    visibility = visibility,
                    testonly = testonly)
@@ -111,7 +103,7 @@ def tf_proto_library(name, srcs = [], has_services = None,
   )
 
   tf_proto_library_go(name=name,
-                      srcs=srcs + tf_deps(deps, "_proto_srcs"),
+                      srcs=srcs + tf_deps(deps, "_proto_srcs") ,
                       deps=deps,
                       testonly=testonly,
                       visibility=visibility,)

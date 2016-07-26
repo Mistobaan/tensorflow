@@ -123,6 +123,7 @@ go_library(
         ":ptypes/timestamp",
         ":ptypes/wrappers",
     ],
+    visibility = ["//visibility:public"],
 )
 
 go_library(
@@ -134,6 +135,7 @@ go_library(
     deps = [
         ":proto",
     ],
+    visibility = ["//visibility:public"],
 )
 
 go_library(

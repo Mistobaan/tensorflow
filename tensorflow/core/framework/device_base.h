@@ -147,7 +147,7 @@ class DeviceBase {
 
   // Return the Allocator implementation to use based on the allocator
   // attributes requested.  See allocator.h for more details.
-  virtual Allocator* GetAllocator(AllocatorAttributes /*attr*/) {
+  virtual Allocator* GetAllocator TF_FUNC_DOES_NOT_RETURN (AllocatorAttributes /*attr*/) {
     LOG(FATAL) << "GetAllocator() is not implemented.";
   }
 
@@ -178,7 +178,7 @@ class DeviceBase {
                                      DeviceContext* /*dc*/,
                                      Allocator* /*allocator*/) {}
 
-  virtual const DeviceAttributes& attributes() const {
+  virtual const DeviceAttributes& attributes TF_FUNC_DOES_NOT_RETURN () const {
     LOG(FATAL) << "Device does not implement attributes()";
   }
 

@@ -180,8 +180,8 @@ struct Helper<string> {
 
   // Returns the estimated memory usage of "n" elements of type T
   // stored in buffer "in".
-  static int64 TotalBytes(TensorBuffer* in, int n) {
-    int64 tot = in->size();
+  static size_t TotalBytes(TensorBuffer* in, int n) {
+    size_t tot = in->size();
     DCHECK_EQ(tot, sizeof(string) * n);
     const string* p = in->base<const string>();
     for (int i = 0; i < n; ++i, ++p) tot += p->size();

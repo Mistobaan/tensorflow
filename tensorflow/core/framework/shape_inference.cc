@@ -40,7 +40,7 @@ InferenceContext::InferenceContext(
   for (const auto& e : output_name_map_) {
     num_outputs = std::max(num_outputs, e.second.second);
   }
-  int num_inputs_from_node_def = 0;
+  size_t num_inputs_from_node_def = 0;
   for (const auto& e : input_name_map_) {
     num_inputs_from_node_def =
         std::max(num_inputs_from_node_def, e.second.second);

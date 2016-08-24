@@ -81,10 +81,17 @@ limitations under the License.
 #endif
 #endif
 
+
 #ifndef TF_FALLTHROUGH_INTENDED
 #define TF_FALLTHROUGH_INTENDED \
   do {                          \
   } while (0)
+#endif
+
+#if defined(LANG_CXX11)
+#define TF_FUNC_DOES_NOT_RETURN [[noreturn]]
+#else
+#define TF_FUNC_DOES_NOT_RETURN
 #endif
 
 #endif  // TENSORFLOW_PLATFORM_MACROS_H_

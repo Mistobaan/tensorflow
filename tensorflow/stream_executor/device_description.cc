@@ -95,6 +95,7 @@ std::unique_ptr<std::map<string, string>> DeviceDescription::ToMap() const {
 
   result["CUDA Compute Capability"] = port::StrCat(
       cuda_compute_capability_major_, ".", cuda_compute_capability_minor_);
+  result["CUDNN Version"] = port::StrCat(cudnn_version);
 
   result["NUMA Node"] = port::StrCat(numa_node());
   result["Core Count"] = port::StrCat(core_count());

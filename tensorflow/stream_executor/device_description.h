@@ -223,6 +223,12 @@ class DeviceDescription {
   int cuda_compute_capability_major_;
   int cuda_compute_capability_minor_;
 
+  // cuDNN library version
+  int cudnn_version;
+
+  // CUDA SDK library version
+  int cuda_sdk_version;
+
   int numa_node_;
   int core_count_;
   bool ecc_enabled_;
@@ -318,6 +324,11 @@ class DeviceDescriptionBuilder {
   }
 
   void set_cuda_compute_capability(int major, int minor) {
+    device_description_->cuda_compute_capability_major_ = major;
+    device_description_->cuda_compute_capability_minor_ = minor;
+  }
+
+  void set_cudnn_version(int major, int minor) {
     device_description_->cuda_compute_capability_major_ = major;
     device_description_->cuda_compute_capability_minor_ = minor;
   }

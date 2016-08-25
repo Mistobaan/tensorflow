@@ -115,14 +115,27 @@ static Status InitGPU() {
       cc_major = 0;
       cc_minor = 0;
     }
+
+    for( auto entries: descripton.ToMap()){
+        LOG(DEBUG) << entries.first << " : " << entries.second;
+    }
+
     LOG(INFO) << "Found device " << i << " with properties: "
-              << "\nname: " << description.name() << "\nmajor: " << cc_major
-              << " minor: " << cc_minor << " memoryClockRate (GHz) "
-              << description.clock_rate_ghz() << "\npciBusID "
-              << description.pci_bus_id() << "\nTotal memory: "
+              << "\nName: " << description.name()
+              << "\nMajor: " << cc_major
+              << "\nMinor: " << cc_minor
+              << "\nMemory Clock Rate (GHz): "
+              << description.clock_rate_ghz()
+              << "\nPci Bus ID "
+              << description.pci_bus_id()
+              << "\nTotal Memory: "
               << strings::HumanReadableNumBytes(total_bytes)
-              << "\nFree memory: "
-              << strings::HumanReadableNumBytes(free_bytes);
+              << "\nFree Memory: "
+              << strings::HumanReadableNumBytes(free_bytes)
+              << "\nCUDA Driver Version:"
+              << description.driver_version()
+              << "\CUDNN Version: "
+              << description.cudnn_version();
   }
 
   // Enable peer access

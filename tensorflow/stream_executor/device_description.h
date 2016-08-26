@@ -1,6 +1,6 @@
 /* Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
+Licensed under the Apache License, Version 2.0 (the "License")
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -167,11 +167,17 @@ class DeviceDescription {
   // TODO(leary): resident blocks per core will be useful.
 
   // Convenience typedef for the string-based DeviceDescription mapping.
-  typedef std::map<string, string> Map;
+  typedef std::map<string, string> map_t;
 
   // Returns a mapping from readable names to readable values that describe the
   // device. This is useful for things like printing.
-  std::unique_ptr<Map> ToMap() const;
+  const map_t ToMap() const;
+
+  // get the long description of the device
+  string long_description() const;
+
+  // get the short description of the device
+  string short_description() const;
 
   // For string values that are not available via the underlying platform, this
   // value will be provided.

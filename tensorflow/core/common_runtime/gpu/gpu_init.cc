@@ -107,35 +107,14 @@ static Status InitGPU() {
       free_bytes = 0;
       total_bytes = 0;
     }
+
     const auto& description = stream_exec->GetDeviceDescription();
-    int cc_major;
-    int cc_minor;
-    if (!description.cuda_compute_capability(&cc_major, &cc_minor)) {
-      // Logs internally on failure.
-      cc_major = 0;
-      cc_minor = 0;
-    }
 
-    for( auto entries: descripton.ToMap()){
-        LOG(DEBUG) << entries.first << " : " << entries.second;
-    }
-
-    LOG(INFO) << "Found device " << i << " with properties: "
-              << "\nName: " << description.name()
-              << "\nMajor: " << cc_major
-              << "\nMinor: " << cc_minor
-              << "\nMemory Clock Rate (GHz): "
-              << description.clock_rate_ghz()
-              << "\nPci Bus ID "
-              << description.pci_bus_id()
-              << "\nTotal Memory: "
-              << strings::HumanReadableNumBytes(total_bytes)
-              << "\nFree Memory: "
-              << strings::HumanReadableNumBytes(free_bytes)
-              << "\nCUDA Driver Version:"
-              << description.driver_version()
-              << "\CUDNN Version: "
-              << description.cudnn_version();
+    LOG(INFO) << "Found device (/gpu:" << i
+              << ") -> ("
+              << description.long_description()
+              << ", Free Memory: " << strings::HumanReadableNumBytes(free_bytes)
+              << ")";
   }
 
   // Enable peer access
@@ -148,7 +127,9 @@ static Status InitGPU() {
   for (int i = 0; i < dev_count; ++i) {
     strings::StrAppend(&line_buf, i, " ");
   }
+
   LOG(INFO) << line_buf;
+
   for (int i = 0; i < dev_count; ++i) {
     line_buf = strings::StrCat(i, ":   ");
     for (int j = 0; j < dev_count; ++j) {

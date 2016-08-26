@@ -55,53 +55,95 @@ DeviceDescription::DeviceDescription()
       clock_rate_ghz_(-1.0),
       cuda_compute_capability_major_(-1),
       cuda_compute_capability_minor_(-1),
+      cudnn_version(-1),
       numa_node_(-1),
       core_count_(-1),
       ecc_enabled_(false) {}
 
-std::unique_ptr<std::map<string, string>> DeviceDescription::ToMap() const {
-  std::unique_ptr<std::map<string, string>> owned_result{
-      new std::map<string, string>};
-  std::map<string, string> &result = *owned_result;
-  result["Device Vendor"] = device_vendor();
-  result["Platform Version"] = platform_version();
-  result["Driver Version"] = driver_version();
-  result["Runtime Version"] = runtime_version();
-  result["PCI bus ID"] = pci_bus_id_;
-  result["Device Name"] = name_;
 
-  const ThreadDim &thread_dim = thread_dim_limit();
-  result["ThreadDim Limit"] =
-      port::StrCat(thread_dim.x, ",", thread_dim.y, ",", thread_dim.z);
-  const BlockDim &block_dim = block_dim_limit();
-  result["BlockDim Limit"] =
-      port::StrCat(block_dim.x, ",", block_dim.y, ",", block_dim.z);
+    string DeviceDescription::short_description() const {
+      return port::StrCat("name: ", name(),
+                            ", pci bus id: ", pci_bus_id());
+    }
 
-  result["Threads Per Core Limit"] = port::StrCat(threads_per_core_limit());
-  result["Threads Per Block Limit"] = port::StrCat(threads_per_block_limit());
-  result["Registers Per Block Limit"] =
-      port::StrCat(registers_per_block_limit());
+    string DeviceDescription::long_description() const {
+      const ThreadDim &thread_dim = thread_dim_limit();
+      const BlockDim &block_dim = block_dim_limit();
+      return port::StrCat(
+          "Device Vendor: ",  device_vendor(),
+          "Platform Version", platform_version(),
+          "Driver Version", driver_version(),
+          "Runtime Version", runtime_version(),
+          "PCI bus ID", pci_bus_id_,
+          "Device Name", name_,
+          "ThreadDim Limit",
+              port::StrCat(thread_dim.x, ",", thread_dim.y, ",", thread_dim.z),
+          "BlockDim Limit",
+              port::StrCat(block_dim.x, ",", block_dim.y, ",", block_dim.z),
+          "Threads Per Core Limit", port::StrCat(threads_per_core_limit()),
+          "Threads Per Block Limit", port::StrCat(threads_per_block_limit()),
+          "Registers Per Block Limit",
+              port::StrCat(registers_per_block_limit()),
 
-  result["Device Address Bits"] = port::StrCat(device_address_bits());
-  result["Device Memory Size"] =
-      port::HumanReadableNumBytes::ToString(device_memory_size());
+          "Device Address Bits", port::StrCat(device_address_bits()),
+          "Device Memory Size",
+              port::HumanReadableNumBytes::ToString(device_memory_size()),
 
-  result["Shared Memory Per Core"] =
-      port::HumanReadableNumBytes::ToString(shared_memory_per_core_);
-  result["Shared Memory Per Block"] =
-      port::HumanReadableNumBytes::ToString(shared_memory_per_block_);
+          "Shared Memory Per Core",
+              port::HumanReadableNumBytes::ToString(shared_memory_per_core_),
+          "Shared Memory Per Block",
+              port::HumanReadableNumBytes::ToString(shared_memory_per_block_),
 
-  result["Clock Rate GHz"] = port::StrCat(clock_rate_ghz());
+          "Clock Rate GHz", port::StrCat(clock_rate_ghz()),
 
-  result["CUDA Compute Capability"] = port::StrCat(
-      cuda_compute_capability_major_, ".", cuda_compute_capability_minor_);
-  result["CUDNN Version"] = port::StrCat(cudnn_version);
+          "CUDA Compute Capability", port::StrCat(
+              cuda_compute_capability_major_, ".", cuda_compute_capability_minor_),
+          "CUDNN Version", port::StrCat(cudnn_version),
 
-  result["NUMA Node"] = port::StrCat(numa_node());
-  result["Core Count"] = port::StrCat(core_count());
-  result["ECC Enabled"] = port::StrCat(ecc_enabled());
-  return owned_result;
-}
+          "NUMA Node", port::StrCat(numa_node()),
+          "Core Count", port::StrCat(core_count()),
+          "ECC Enabled", port::StrCat(ecc_enabled()));
+    }
+
+ const DeviceDescription::map_t DeviceDescription::ToMap() const {
+      const ThreadDim &thread_dim = thread_dim_limit();
+      const BlockDim &block_dim = block_dim_limit();
+      return {
+          {"Device Vendor",  device_vendor()},
+          {"Platform Version", platform_version()},
+          {"Driver Version", driver_version()},
+          {"Runtime Version", runtime_version()},
+          {"PCI bus ID", pci_bus_id_},
+          {"Device Name", name_},
+          {"ThreadDim Limit",
+              port::StrCat(thread_dim.x, ",", thread_dim.y, ",", thread_dim.z)},
+          {"BlockDim Limit",
+              port::StrCat(block_dim.x, ",", block_dim.y, ",", block_dim.z)},
+          {"Threads Per Core Limit", port::StrCat(threads_per_core_limit())},
+          {"Threads Per Block Limit", port::StrCat(threads_per_block_limit())},
+          {"Registers Per Block Limit",
+              port::StrCat(registers_per_block_limit())},
+
+          {"Device Address Bits", port::StrCat(device_address_bits())},
+          {"Device Memory Size",
+              port::HumanReadableNumBytes::ToString(device_memory_size())},
+
+          {"Shared Memory Per Core",
+              port::HumanReadableNumBytes::ToString(shared_memory_per_core_)},
+          {"Shared Memory Per Block",
+              port::HumanReadableNumBytes::ToString(shared_memory_per_block_)},
+
+          {"Clock Rate GHz", port::StrCat(clock_rate_ghz())},
+
+          {"CUDA Compute Capability", port::StrCat(
+              cuda_compute_capability_major_, ".", cuda_compute_capability_minor_)},
+          {"CUDNN Version", port::StrCat(cudnn_version)},
+
+          {"NUMA Node", port::StrCat(numa_node())},
+          {"Core Count", port::StrCat(core_count())},
+          {"ECC Enabled", port::StrCat(ecc_enabled())},
+      };
+    }
 
 namespace internal {
 

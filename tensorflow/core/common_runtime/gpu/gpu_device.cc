@@ -632,11 +632,6 @@ int64 MinSystemMemory(int64 available_memory) {
 }
 }  // namespace
 
-static string GetShortDeviceDescription(int device_id,
-                                        const gpu::DeviceDescription& desc) {
-  return strings::StrCat("device: ", device_id, ", name: ", desc.name(),
-                         ", pci bus id: ", desc.pci_bus_id());
-}
 
 Status BaseGPUDeviceFactory::CreateGPUDevice(const SessionOptions& options,
                                              const string& name, int gpu_id,
@@ -701,7 +696,7 @@ Status BaseGPUDeviceFactory::CreateGPUDevice(const SessionOptions& options,
   ProcessState* process_state = ProcessState::singleton();
   *out_device = CreateGPUDevice(
       options, name, allocated_bytes, bus_adjacency, gpu_id,
-      GetShortDeviceDescription(gpu_id, desc),
+      desc.short_description(),
       process_state->GetGPUAllocator(options.config.gpu_options(), gpu_id,
                                      allocated_memory),
       process_state->GetCPUAllocator(numa_node));
@@ -839,8 +834,8 @@ void BaseGPUDeviceFactory::GetValidDeviceIds(std::vector<int>* ids) {
     // Only GPUs with no less than the minimum supported compute capability is
     // accepted.
     if (device_capability < min_supported_capability) {
-      LOG(INFO) << "Ignoring gpu device "
-                << "(" << GetShortDeviceDescription(i, desc) << ") "
+      LOG(INFO) << "Ignoring (/gpu:" << i << ") -> "
+                << "(" << desc.short_description() << ") "
                 << "with Cuda compute capability " << device_capability
                 << ". The minimum required Cuda capability is "
                 << min_supported_capability << ".";
@@ -852,8 +847,8 @@ void BaseGPUDeviceFactory::GetValidDeviceIds(std::vector<int>* ids) {
     // multiprocessors. If the TF_MIN_GPU_MULTIPROCESSOR_COUNT environment
     // variable is set, its value will be used to filter out GPUs.
     if (desc.core_count() < min_gpu_core_count) {
-      LOG(INFO) << "Ignoring gpu device "
-                << "(" << GetShortDeviceDescription(i, desc) << ") "
+      LOG(INFO) << "Ignoring (/gpu:" << i <<
+                << ") -> (" << desc.short_description() << ") "
                 << "with Cuda multiprocessor count: " << desc.core_count()
                 << ". The minimum required count is " << min_gpu_core_count
                 << ". You can adjust this requirement with the env var "
@@ -865,7 +860,7 @@ void BaseGPUDeviceFactory::GetValidDeviceIds(std::vector<int>* ids) {
     ids->push_back(i);
 
     LOG(INFO) << "Creating TensorFlow device (/gpu:" << new_id << ") -> "
-              << "(" << GetShortDeviceDescription(i, desc) << ")";
+              << "(" << desc.short_description() << ")";
   }
 }
 

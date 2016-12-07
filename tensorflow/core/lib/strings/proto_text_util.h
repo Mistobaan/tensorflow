@@ -164,7 +164,7 @@ bool ProtoParseNumericFromScanner(Scanner* scanner, T* value) {
 
   // Special case to disallow multiple leading zeroes, to match proto parsing.
   int leading_zero = 0;
-  for (int i = 0; i < numeric_str.size(); ++i) {
+  for (size_t i = 0; i < numeric_str.size(); ++i) {
     const char ch = numeric_str[i];
     if (ch == '0') {
       if (++leading_zero > 1) return false;
@@ -187,5 +187,7 @@ bool ProtoParseStringLiteralFromScanner(Scanner* scanner, string* value);
 
 }  // namespace strings
 }  // namespace tensorflow
+
+
 
 #endif  // THIRD_PARTY_TENSORFLOW_CORE_LIB_STRINGS_PROTO_TEXT_UTIL_H_

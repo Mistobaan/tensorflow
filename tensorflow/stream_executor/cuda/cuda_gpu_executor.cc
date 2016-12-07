@@ -194,39 +194,6 @@ bool CUDAExecutor::FindOnDiskForComputeCapability(
   return false;
 }
 
-// Returns the path to the running executable.
-// N.B. Derived from //knowledge/smalltalk/background_kb.cc
-// Arg: strip_exe: if true, remove the name of the executable itself from the
-//                 returned string. Example: calling this from /usr/bin/foo
-//                 would return /usr/bin.
-static string GetBinaryDir(bool strip_exe) {
-  char exe_path[PATH_MAX] = {0};
-#if defined(__APPLE__)
-    uint32_t buffer_size = 0U;
-    _NSGetExecutablePath(nullptr, &buffer_size);
-    char unresolved_path[buffer_size];
-    _NSGetExecutablePath(unresolved_path, &buffer_size);
-    CHECK_ERR(realpath(unresolved_path, exe_path) ? 1 : -1);
-#else
-#if defined(PLATFORM_WINDOWS)
-  HMODULE hModule = GetModuleHandle(NULL);
-  GetModuleFileName(hModule, exe_path, MAX_PATH);
-#else
-  CHECK_ERR(readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1));
-#endif
-#endif
-  // Make sure it's null-terminated:
-  exe_path[sizeof(exe_path) - 1] = 0;
-
-  if (strip_exe) {
-    // The exe is the last component of the path, so remove one component.
-    string ret = exe_path;
-    std::vector<string> components = port::Split(exe_path, '/');
-    components.pop_back();
-    return port::Join(components, "/");
-  }
-  return exe_path;
-}
 
 bool CUDAExecutor::GetKernel(const MultiKernelLoaderSpec &spec,
                              KernelBase *kernel) {
@@ -764,6 +731,8 @@ SharedMemoryConfig CUDAExecutor::GetDeviceSharedMemoryConfig() {
       LOG(FATAL) << "Invalid shared memory configuration returned: "
                  << cuda_config.ValueOrDie();
   }
+
+  return SharedMemoryConfig::kDefault;
 }
 
 port::Status CUDAExecutor::SetDeviceSharedMemoryConfig(

@@ -64,7 +64,7 @@ IntegralType MathUtil::CeilOrFloorOfRatio(IntegralType numerator,
   // SIGFPE
   assert(!std::is_signed<IntegralType>::value ||
          numerator != std::numeric_limits<IntegralType>::min() ||
-         denominator != -1);
+         denominator != IntegralType(-1));
 
   const IntegralType rounded_toward_zero = numerator / denominator;
   const IntegralType intermediate_product = rounded_toward_zero * denominator;

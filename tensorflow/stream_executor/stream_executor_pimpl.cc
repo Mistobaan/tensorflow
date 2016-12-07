@@ -583,7 +583,7 @@ bool StreamExecutor::MemZero(Stream *stream, DeviceMemoryBase *location,
 
 bool StreamExecutor::Memset32(Stream *stream, DeviceMemoryBase *location,
                               uint32 pattern, uint64 size) {
-  CHECK_EQ(0, size % 4)
+  CHECK_EQ(size % 4, 0)
       << "need 32-bit multiple size to fill with 32-bit pattern";
   return implementation_->Memset32(stream, location, pattern, size);
 }

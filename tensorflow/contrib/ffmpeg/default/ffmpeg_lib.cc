@@ -139,7 +139,7 @@ template <typename UInt>
 string LittleEndianData(UInt data) {
   static_assert(std::is_unsigned<UInt>::value, "UInt must be unsigned");
   string str;
-  for (int i = 0; i < sizeof(UInt); ++i) {
+  for (size_t i = 0; i < sizeof(UInt); ++i) {
     const unsigned char bits = static_cast<unsigned char>(data & 0xFFU);
     char ch;
     ::memcpy(&ch, &bits, sizeof(bits));
@@ -210,6 +210,7 @@ string GetTempFilename(const string& extension) {
     }
   }
   LOG(FATAL) << "No temp directory found.";
+  return "";
 }
 
 Status ReadAudioFile(const string& filename,

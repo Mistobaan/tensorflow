@@ -30,8 +30,31 @@ try:
 except ImportError:
   from distutils.spawn import find_executable as which
 
-_TF_BAZELRC = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           '.tf_configure.bazelrc')
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--workspace",
+                      type=str,
+                      default=os.path.dirname(os.path.abspath(__file__)),
+                      help="the absolute path to your active bazel workspace.")
+parser.add_argument("--tf_workspace",
+                      type=str,
+                      default=os.path.dirname(os.path.abspath(__file__)),
+                      help="the absolute path to the tensorflow workspace."\
+                          "Use `$(bazel info output_base)/external/org_tensorflow`" \
+                          "if you are importing tensorflow as a module.")
+args = parser.parse_args()
+
+_WORKSPACE = args.workspace
+_TF_WORKSPACE = args.tf_workspace
+
+if not os.path.exists(_WORKSPACE):
+  raise OSError("path not found %s" % _WORKSPACE)
+
+if not os.path.exists(_TF_WORKSPACE):
+  raise OSError("path not found %s" % _TF_WORKSPACE)
+
+
+_TF_BAZELRC = os.path.join(_WORKSPACE, '.tf_configure.bazelrc')
 _DEFAULT_CUDA_VERSION = '8.0'
 _DEFAULT_CUDNN_VERSION = '6'
 _DEFAULT_CUDA_COMPUTE_CAPABILITIES = '3.5,5.2'
@@ -240,24 +263,24 @@ def setup_python(environ_cp):
   environ_cp['PYTHON_BIN_PATH'] = python_bin_path
 
   # Write tools/python_bin_path.sh
-  with open('tools/python_bin_path.sh', 'w') as f:
+  with open(os.path.join(_TF_WORKSPACE, 'tools/python_bin_path.sh'), 'w') as f:
     f.write('export PYTHON_BIN_PATH="%s"' % python_bin_path)
 
 
 def reset_tf_configure_bazelrc():
   """Reset file that contains customized config settings."""
   open(_TF_BAZELRC, 'w').close()
-
+  bazelrc_path = os.path.join(_WORKSPACE, '.bazelrc') 
   home = os.path.expanduser('~')
-  if not os.path.exists('.bazelrc'):
+  if not os.path.exists(bazelrc_path):
     if os.path.exists(os.path.join(home, '.bazelrc')):
-      with open('.bazelrc', 'a') as f:
+      with open(bazelrc_path, 'a') as f:
         f.write('import %s/.bazelrc\n' % home.replace('\\', '/'))
     else:
-      open('.bazelrc', 'w').close()
+      open(bazelrc_path, 'w').close()
 
-  remove_line_with('.bazelrc', 'tf_configure')
-  with open('.bazelrc', 'a') as f:
+  remove_line_with(bazelrc_path, 'tf_configure')
+  with open(bazelrc_path, 'a') as f:
     f.write('import %workspace%/.tf_configure.bazelrc\n')
 
 
@@ -269,8 +292,9 @@ def run_gen_git_source(environ_cp):
   Args:
     environ_cp: copy of the os.environ.
   """
-  cmd = '"%s" tensorflow/tools/git/gen_git_source.py --configure %s' % (
-      environ_cp.get('PYTHON_BIN_PATH'), os.getcwd())
+  abs_path = os.path.join(_TF_WORKSPACE, 'tensorflow/tools/git/gen_git_source.py')
+  cmd = '"%s" %s --configure %s' % (
+      environ_cp.get('PYTHON_BIN_PATH'), abs_path, _TF_WORKSPACE)
   os.system(cmd)
 
 
@@ -279,7 +303,7 @@ def cleanup_makefile():
 
   These files could interfere with Bazel parsing.
   """
-  makefile_download_dir = 'tensorflow/contrib/makefile/downloads'
+  makefile_download_dir = os.path.join(_TF_WORKSPACE, 'tensorflow/contrib/makefile/downloads')
   if os.path.isdir(makefile_download_dir):
     for root, _, filenames in os.walk(makefile_download_dir):
       for f in filenames:
